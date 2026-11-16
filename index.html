@@ -1,0 +1,1115 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="color-scheme" content="light">
+<meta name="apple-mobile-web-app-title" content="Diario">
+<meta name="theme-color" content="#f3f6f4">
+<!-- 0.5 (16 nov) · per metterlo nella Home. I file stanno accanto a questo solo nella cartella
+     pubblicata (`pubblica_diario.py`); aperto con doppio clic non li trova, e non serve. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icona-180.png">
+<link rel="icon" href="icona-192.png">
+<title>Shiftly Diario</title>
+<!--
+  SHIFTLY NUTRITION · DIARIO — l'app della cliente.
+  14 novembre 2026 · versione 0.1, da provare sul PC prima di pubblicarla da qualche parte.
+  Progetto: Documenti/nutrition/DIARIO_CLIENTE.md. Il piano arriva da Shiftly Nutrition 1.8
+  («Manda alla cliente», formato `shiftly-nutrition-piano-cliente`).
+  ⚠️ I DATI STANNO SOLO QUI, nel browser che apre il file: nessun server, nessun account. Lo stesso
+     patto di Nutrition. Per spostarli c'è il backup.
+-->
+<style>
+:root{
+  --bg:oklch(0.968 0.004 160); --panel:oklch(1 0 0);
+  --ink:oklch(0.265 0.016 200); --muted:oklch(0.505 0.014 185);
+  --line:oklch(0.915 0.007 165); --line-soft:oklch(0.915 0.007 165 / .55);
+  --brand:oklch(0.515 0.095 158); --brand-ink:oklch(0.43 0.09 158); --brand-soft:oklch(0.958 0.024 160);
+  --warn:oklch(0.545 0.155 45); --warn-soft:oklch(0.965 0.03 60);
+  --bad:oklch(0.525 0.165 26);
+    --sh-1:0 1px 2px oklch(0.28 0.02 200 / .05);
+  --sh-2:0 1px 2px oklch(0.28 0.02 200 / .05), 0 4px 14px -4px oklch(0.28 0.02 200 / .10);
+  --sh-pop:0 24px 60px -14px oklch(0.24 0.02 200 / .34), 0 0 0 1px oklch(0.28 0.02 200 / .07);
+  --radius:14px; --ease:cubic-bezier(.22,.61,.36,1);
+  --water:var(--brand); --sgarro-bg:#e9f0fa; --sgarro-fg:#3f70b8;   /* lo sgarro come le etichette informative di Nutrition: niente rosso */
+}
+/* ⚠️ 14 novembre · NIENTE TEMA SCURO. Shiftly e Nutrition sono sempre chiari: col Mac in modalità
+   scura il Diario diventava «molto scuro, un po' too much» (Giuseppe). Una famiglia sola, un aspetto solo. */
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+@media (min-width:640px){
+  body{padding:24px 0}
+  .app{min-height:calc(100vh - 48px);border-radius:28px;background:var(--bg);box-shadow:var(--sh-pop);position:relative}
+}
+header.top{padding:calc(16px + env(safe-area-inset-top)) 18px 6px}
+.hello{font-size:13px;color:var(--muted);font-weight:500}
+.dayrow{display:flex;align-items:center;gap:6px;margin-top:2px}
+.dayrow h1{font-size:24px;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.01em;flex:1}
+.iconbtn{border:0;background:transparent;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--muted)}
+.iconbtn:hover{background:var(--line-soft)}
+.iconbtn:disabled{opacity:.3;cursor:default;background:transparent}
+.todaylink{border:0;background:var(--brand-soft);color:var(--brand-ink);font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:999px}
+main{flex:1;padding:6px 14px 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--sh-1);padding:14px;margin:0 0 12px}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+.h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 4px 8px}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:600;background:var(--brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px}
+.btn.big{width:100%;font-size:16px;min-height:54px;border-radius:16px}
+/* ⚠️ 14 novembre · dal collaudo: il tasto stava sotto i cinque pasti, fuori dallo schermo, e ogni sera
+   bisognava scorrere. Adesso resta appoggiato sopra la barra finché non si arriva al suo posto. */
+.stickybtn{position:sticky;bottom:calc(84px + env(safe-area-inset-bottom));z-index:5;box-shadow:0 8px 24px -8px oklch(0.3 0.08 158 / .55)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.btn.soft{background:var(--brand-soft);color:var(--brand-ink)}
+.btn.danger{background:transparent;color:var(--bad);box-shadow:inset 0 0 0 1px var(--line)}
+.btn:disabled{opacity:.45;cursor:default}
+.plandayline{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:2px 4px 10px}
+.plandayline b{color:var(--ink)}
+.swapchip{border:0;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);border-radius:999px;padding:4px 10px;font-size:12.5px;font-weight:600;color:var(--brand-ink);display:inline-flex;gap:5px;align-items:center}
+.swapchip.on{background:var(--brand-soft);box-shadow:none}
+/* i pasti */
+.meal{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--sh-1);padding:12px 14px 12px 18px;margin:0 0 10px;cursor:pointer;transition:transform .12s var(--ease)}
+.meal:active{transform:scale(.99)}
+/* la banda è grigia finché il pasto è da segnare, verde quando è segnato: l'unico colore è il verde */
+.meal::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:4px;border-radius:0 4px 4px 0;background:var(--line)}
+.meal.segnato::before{background:var(--brand)}
+.meal .mhead{display:flex;align-items:center;gap:8px}
+.meal .mname{font-weight:700;font-size:15.5px;flex:1}
+.meal ul{list-style:none;margin:6px 0 0;padding:0}
+.meal li{padding:3px 0;font-size:14px}
+.meal li .q{color:var(--muted);white-space:nowrap}
+.alts{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.alt{border:0;border-radius:10px;padding:5px 9px;font-size:13px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);text-align:left}
+.alt.on{background:var(--brand-soft);box-shadow:inset 0 0 0 1.5px var(--brand);color:var(--brand-ink);font-weight:600}
+.empty-meal{font-size:13.5px;color:var(--muted);font-style:italic;margin-top:4px}
+.swapnote{font-size:12px;color:var(--brand-ink);margin-top:6px;display:flex;align-items:center;gap:5px}
+.pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.pill.vuoto{color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.pill.piano{background:var(--brand-soft);color:var(--brand-ink)}
+.pill.modificato{background:#fbf0e6;color:var(--warn)}
+.pill.sgarro{background:var(--sgarro-bg);color:var(--sgarro-fg)}
+.pill.saltato{background:var(--line-soft);color:var(--muted)}
+.mnote{font-size:12.5px;color:var(--muted);margin-top:4px}
+/* acqua e attività */
+.rowline{display:flex;align-items:center;gap:10px}
+.rowline .lab{font-weight:700;flex:1}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:44px;height:44px;border-radius:14px;border:0;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);font-size:22px;font-weight:600;line-height:1}
+.stepper .num{min-width:62px;text-align:center;font-weight:700;font-size:18px}
+.glasses{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.glass{width:20px;height:26px}
+.glass path{fill:none;stroke:var(--water);stroke-width:1.6}
+.glass .fill{fill:var(--water);stroke:none;opacity:.85}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;border:0;border-radius:12px;padding:11px 8px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);font-weight:600}
+.seg button.on{background:var(--brand);color:#fff;box-shadow:none}
+.seg button.on.no{background:var(--ink);color:var(--panel)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{border:0;border-radius:999px;padding:6px 12px;font-size:13px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line)}
+.chip.on{background:var(--brand-soft);color:var(--brand-ink);box-shadow:inset 0 0 0 1.5px var(--brand);font-weight:600}
+textarea,input[type=text],input[type=number],input[type=date],input[inputmode]{width:100%;border:0;border-radius:12px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);padding:11px 12px;outline:none}
+textarea:focus,input:focus{box-shadow:inset 0 0 0 2px var(--brand)}
+textarea{resize:vertical;min-height:44px}
+/* gli avvisi come i riquadri di Nutrition (`.callout`): grigio chiaro, testo scuro */
+.banner{display:flex;gap:10px;align-items:center;background:#f4f6f5;border:1px solid var(--line);color:var(--ink);border-radius:var(--radius);padding:12px 14px;margin:0 0 12px;font-size:14px}
+.banner.warn{background:#fdf5ec;border-color:#f1d9bd;color:var(--ink)}
+.banner b{color:inherit}
+.banner .grow{flex:1}
+.banner button{border:0;background:transparent;color:inherit;font-weight:700;text-decoration:underline;padding:0}
+/* navigazione */
+/* ⚠️ 14 novembre · la barra ha i colori della barra di Nutrition (`.side`): fondo scuro, voci chiare,
+   quella attiva bianca col trattino verde. Prima era bianca come il resto (Giuseppe: «il menu lo farei
+   come Nutrition»). */
+.nav{position:fixed;left:0;right:0;bottom:0;background-color:#2b3236;background-image:linear-gradient(oklch(0.315 0.02 195),oklch(0.268 0.018 200));box-shadow:0 -1px 0 oklch(1 0 0 / .07);display:flex;justify-content:center;padding:6px 6px calc(6px + env(safe-area-inset-bottom));z-index:20}
+.nav .in{display:flex;width:100%;max-width:480px}
+.nav button{position:relative;flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0 6px;font-size:11.5px;font-weight:600;color:#b3bdb0;border-radius:12px}
+.nav button:hover{background:oklch(1 0 0 / .07);color:#fff}
+.nav button.on{color:#fff;background:oklch(1 0 0 / .11)}
+.nav button.on::before{content:"";position:absolute;top:0;left:50%;width:18px;height:3px;margin-left:-9px;border-radius:0 0 3px 3px;background:oklch(0.78 0.13 158)}
+.nav svg{width:24px;height:24px;opacity:.85}
+.nav button.on svg{opacity:1}
+/* ⚠️ 14 novembre · sullo schermo largo la barra era `absolute` dentro la colonna: stava in fondo alla
+   PAGINA, non allo schermo, e scorrendo restava «appiccicata» a metà. Adesso è fissa allo schermo
+   sempre, e sullo schermo largo è larga quanto la colonna. */
+@media (min-width:640px){ .nav{left:50%;right:auto;width:480px;transform:translateX(-50%);border-radius:18px 18px 0 0} }
+/* mese */
+.monthbar{display:flex;align-items:center;gap:4px;margin:0 0 10px}
+.monthbar h2{flex:1;text-align:center;margin:0;font-size:17px;text-transform:capitalize}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .wd{font-size:11px;font-weight:700;color:var(--muted);text-align:center;padding:2px 0 4px}
+.cal .d{border:0;background:transparent;border-radius:12px;aspect-ratio:1/1.12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:600;color:var(--ink);padding:0}
+.cal .d:hover{background:var(--line-soft)}
+.cal .d.out{visibility:hidden}
+.cal .d.fut{color:var(--muted);opacity:.55}
+.cal .d.today{box-shadow:inset 0 0 0 1.5px var(--brand)}
+.dot{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line)}
+.dot.pieno{background:var(--brand);box-shadow:none}
+.dot.mezzo{background:linear-gradient(90deg,var(--brand) 50%,transparent 50%);box-shadow:inset 0 0 0 1.5px var(--brand)}
+.dot.sgarro{background:var(--sgarro-fg);box-shadow:none}
+.dot.gym{width:5px;height:5px;border-radius:50%;background:var(--ink);box-shadow:none;margin-top:-2px}
+.dot.nogym{width:5px;height:5px;background:transparent;box-shadow:none;margin-top:-2px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:12px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--sh-1);padding:12px 14px}
+.stat .v{font-size:24px;font-weight:700;letter-spacing:-.01em}
+.stat .l{font-size:12.5px;color:var(--muted)}
+/* misure */
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mfield label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:0 0 4px 2px}
+.mfield .wrap{position:relative}
+.mfield .u{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none}
+.mfield.err input{box-shadow:inset 0 0 0 2px var(--bad)}
+.mfield .e{color:var(--bad);font-size:12px;margin-top:3px}
+.chart{width:100%;height:150px;display:block}
+.chart .ln{fill:none;stroke:var(--brand);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.chart .pt{fill:var(--panel);stroke:var(--brand);stroke-width:2}
+.chart .ax{fill:var(--muted);font-size:10px}
+.chart .gl{stroke:var(--line);stroke-width:1}
+table.hist{width:100%;border-collapse:collapse;font-size:13.5px}
+table.hist th,table.hist td{padding:7px 4px;border-bottom:1px solid var(--line-soft);text-align:right}
+table.hist th:first-child,table.hist td:first-child{text-align:left}
+table.hist th{font-size:11.5px;color:var(--muted);font-weight:600}
+.delta{font-size:11.5px;color:var(--muted);display:block}
+/* il piano */
+.pday{margin:0 0 10px}
+.pday h3{margin:0 0 6px;font-size:15px}
+.pday .pm{font-size:13.5px;padding:4px 0;border-top:1px solid var(--line-soft)}
+.pday .pm b{display:inline-block;min-width:84px}
+/* foglio dal basso */
+.sheet-back{position:fixed;inset:0;background:oklch(0.2 0.02 200 / .38);display:flex;align-items:flex-end;justify-content:center;z-index:50;animation:fade .15s var(--ease)}
+.sheet{background:var(--panel);width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:10px 16px calc(18px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;box-shadow:var(--sh-pop);animation:up .2s var(--ease)}
+@media (min-width:640px){ .sheet-back{align-items:center} .sheet{border-radius:22px} }
+.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 10px}
+.sheet h3{margin:0 0 4px;font-size:18px}
+.sheet .sub{color:var(--muted);font-size:13.5px;margin:0 0 12px}
+.opts{display:grid;gap:8px}
+.opt{border:0;border-radius:14px;padding:13px 14px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);text-align:left;display:flex;align-items:center;gap:12px;font-weight:600}
+.opt .ico{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;flex:none;font-size:16px}
+.opt small{display:block;font-weight:400;color:var(--muted);font-size:12.5px}
+.opt.on{box-shadow:inset 0 0 0 2px var(--brand);background:var(--brand-soft)}
+.sheet .foot{display:flex;gap:8px;margin-top:14px}
+.sheet .foot .btn{flex:1}
+@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:11px 14px;border-radius:14px;font-size:14px;display:flex;gap:14px;align-items:center;z-index:60;box-shadow:var(--sh-pop);max-width:calc(100vw - 32px)}
+.toast button{border:0;background:transparent;color:var(--brand-soft);font-weight:700;padding:0;text-decoration:underline}
+/* benvenuto */
+.welcome{padding:calc(40px + env(safe-area-inset-top)) 22px 30px;text-align:center}
+.logo{width:64px;height:64px;border-radius:20px;background:var(--brand);display:grid;place-items:center;margin:0 auto 18px;box-shadow:var(--sh-2)}
+.welcome h1{font-size:26px;margin:0 0 8px}
+.welcome p{color:var(--muted);margin:0 auto 22px;max-width:340px}
+.welcome .stack{display:grid;gap:10px;max-width:340px;margin:0 auto}
+.welcome .installa{text-align:left;max-width:340px;margin:0 auto 20px;border-color:var(--brand);background:var(--brand-soft)}
+.welcome .installa ol{margin:8px 0 6px;padding-left:20px;font-size:14.5px}
+.welcome .installa li{margin:4px 0}
+.welcome .installa p{margin:0;max-width:none}
+.list{list-style:none;padding:0;margin:0}
+.list li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:14px}
+.list li:last-child{border-bottom:0}
+.hidden{display:none!important}
+.thumb{display:block;width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-top:10px;border:1px solid var(--line)}
+.thumb.mini{width:44px;height:44px;margin:0 10px 0 0;flex:none}
+.fotobox{display:flex;gap:12px;align-items:center}
+.list li.spesa{justify-content:flex-start;align-items:center;gap:12px;cursor:pointer}
+.list li.spesa small{display:block;color:var(--muted);font-size:12.5px}
+.list li.spesa .tick{width:26px;height:26px;border-radius:8px;box-shadow:inset 0 0 0 1.5px var(--line);display:grid;place-items:center;flex:none;color:#fff;font-weight:700;font-size:14px}
+.list li.spesa.presa .tick{background:var(--brand);box-shadow:none}
+.list li.spesa.presa b{color:var(--muted);text-decoration:line-through;font-weight:500}
+.fotobox img{width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--line);flex:none}
+.grow{flex:1}
+.link{border:0;background:transparent;color:var(--brand-ink);font-weight:600;padding:0;text-decoration:underline}
+.setrow{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line-soft);width:100%;border-left:0;border-right:0;border-top:0;background:transparent;text-align:left}
+.setrow:last-child{border-bottom:0}
+.setrow .grow{flex:1} .setrow small{display:block;color:var(--muted);font-size:12.5px;font-weight:400}
+.setrow b{font-weight:600}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<nav class="nav hidden" id="nav"><div class="in">
+  <button data-go="oggi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>Oggi</button>
+  <button data-go="mese"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/><circle cx="8" cy="15" r="1"/><circle cx="12" cy="15" r="1"/><circle cx="16" cy="15" r="1"/></svg>Il mese</button>
+  <button data-go="misure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V10M11 20V5M16 20v-7M21 20v-4" /></svg>Misure</button>
+  <button data-go="piano"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Il piano</button>
+  <button data-go="altro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>Altro</button>
+</div></nav>
+<input type="file" id="file-piano" accept=".json,application/json" class="hidden">
+<input type="file" id="file-backup" accept=".json,application/json" class="hidden">
+<script>
+'use strict';
+const APP_VERSION='0.5.0';
+const PIANO_FORMAT='shiftly-nutrition-piano-cliente', DIARIO_FORMAT='shiftly-nutrition-diario', BACKUP_FORMAT='shiftly-diario-backup';
+
+/* ============================ PICCOLI ATTREZZI ============================ */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* ⚠️ LE DATE SONO DEL CALENDARIO, NON DELL'OROLOGIO. `toISOString()` dà la data in UTC: in Italia
+   fra mezzanotte e l'una (le due d'estate) segnerebbe il giorno PRIMA. Qui solo date locali. */
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parse=s=>{ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+/* ⚠️ 14 novembre · LA GIORNATA FINISCE ALLE 4 DEL MATTINO, non a mezzanotte. Dal collaudo: chi lavora
+   su turni torna a casa all'una, apre «Oggi», e con un tocco segnava come mangiati i pasti del giorno
+   DOPO. Fino alle 4 «oggi» è ancora ieri, e l'intestazione lo dice. */
+const ORA_CAMBIO_GIORNO=4;
+const oggi=()=>{ const d=new Date(); d.setHours(d.getHours()-ORA_CAMBIO_GIORNO); return ymd(d); };
+const notteFonda=()=>new Date().getHours()<ORA_CAMBIO_GIORNO;
+const addDays=(s,n)=>{ const d=parse(s); d.setDate(d.getDate()+n); return ymd(d); };
+const daysBetween=(a,b)=>Math.round((parse(b)-parse(a))/86400000);
+const wd=s=>(parse(s).getDay()+6)%7;                      /* 0 = lunedì */
+const GIORNI=['lunedì','martedì','mercoledì','giovedì','venerdì','sabato','domenica'];
+const MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const dataLunga=s=>{ const d=parse(s); return `${GIORNI[wd(s)]} ${d.getDate()} ${MESI[d.getMonth()]}`; };
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const lunediDi=s=>addDays(s,-wd(s));
+const numIt=v=>{ if(v==null) return null; const t=String(v).trim().replace(',','.'); if(t==='') return null; const n=Number(t); return Number.isFinite(n)?n:null; };
+const fmt=(n,dec=1)=>n==null?'—':n.toLocaleString('it-IT',{minimumFractionDigits:0,maximumFractionDigits:dec});
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+/* ============================ L'ARCHIVIO ============================
+   Un oggetto solo, salvato intero a ogni cambiamento. È piccolo (un anno di diario sono poche
+   decine di kB) e così non esiste un momento in cui metà dei dati è salvata e metà no.
+   IndexedDB se c'è, altrimenti localStorage: aperto come file, Safari a volte nega il primo. */
+const VUOTO=()=>({versione:1, piano:null, inizio:null, giorni:{}, misure:{}, ultimoInvio:null, opzioni:{}});
+let ST=VUOTO();
+const DB={
+  _db:null,
+  async apri(){ if(!('indexedDB' in window)) return null;
+    /* versione 2 (14 nov): le foto stanno in un archivio a parte (`foto`), non dentro lo stato. Lo stato
+       si riscrive intero a ogni tocco e va anche in localStorage, che regge pochi MB: con le foto
+       dentro, dopo qualche settimana non si salverebbe più niente. */
+    return new Promise(res=>{ try{ const r=indexedDB.open('shiftly-diario',2);
+      r.onupgradeneeded=()=>{ const db=r.result; if(!db.objectStoreNames.contains('kv')) db.createObjectStore('kv'); if(!db.objectStoreNames.contains('foto')) db.createObjectStore('foto'); };
+      r.onsuccess=()=>{ this._db=r.result; res(r.result); }; r.onerror=()=>res(null); }catch(e){ res(null); } }); },
+  async leggi(){ try{ const db=this._db||await this.apri();
+      if(db){ const v=await new Promise((res,rej)=>{ const t=db.transaction('kv').objectStore('kv').get('stato'); t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); });
+        if(v) return v; } }catch(e){}
+    try{ const s=localStorage.getItem('shiftly-diario'); return s?JSON.parse(s):null; }catch(e){ return null; } },
+  async scrivi(v){ let ok=false;
+    try{ const db=this._db||await this.apri();
+      if(db){ await new Promise((res,rej)=>{ const t=db.transaction('kv','readwrite'); t.objectStore('kv').put(v,'stato'); t.oncomplete=res; t.onerror=()=>rej(t.error); }); ok=true; } }catch(e){}
+    try{ localStorage.setItem('shiftly-diario', JSON.stringify(v)); ok=true; }catch(e){}
+    return ok; },
+  async _foto(modo, fn){ const db=this._db||await this.apri(); if(!db) throw new Error('niente IndexedDB');
+    return new Promise((res,rej)=>{ const t=db.transaction('foto',modo); const st=t.objectStore('foto'); let out; const r=fn(st); if(r) r.onsuccess=()=>{ out=r.result; };
+      t.oncomplete=()=>res(out); t.onerror=()=>rej(t.error); }); },
+  fotoPut(id,url){ return this._foto('readwrite', st=>st.put(url,id)); },
+  fotoDel(id){ return this._foto('readwrite', st=>st.delete(id)); },
+  fotoSvuota(){ return this._foto('readwrite', st=>st.clear()); },
+  async fotoTutte(){ const out={}; try{ const db=this._db||await this.apri(); if(!db) return out;
+      await new Promise((res,rej)=>{ const t=db.transaction('foto'); const c=t.objectStore('foto').openCursor();
+        c.onsuccess=()=>{ const k=c.result; if(k){ out[k.key]=k.value; k.continue(); } }; t.oncomplete=res; t.onerror=()=>rej(t.error); }); }catch(e){}
+    return out; }
+};
+/* Le foto in memoria, caricate all'avvio: il disegno della pagina è sincrono e non può aspettarle. */
+const FOTO=new Map();
+const idFoto=(d,p)=>`${d}|${p}`;
+const fotoDi=(d,p)=>{ const v=voce(d,p); return (v&&v.foto)? (FOTO.get(idFoto(d,p))||null) : null; };
+/* Una foto del telefono pesa 3-5 MB: si rimpicciolisce a 1024 px sul lato lungo, in JPEG. */
+function rimpicciolisci(file){ return new Promise((res,rej)=>{ const url=URL.createObjectURL(file), img=new Image();
+  img.onload=()=>{ const M=1024, k=Math.min(1, M/Math.max(img.naturalWidth,img.naturalHeight)); const c=document.createElement('canvas');
+    c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k); c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg',0.72)); };
+  img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('immagine illeggibile')); }; img.src=url; }); }
+let salvaT=null;
+function salva(){ clearTimeout(salvaT); salvaT=setTimeout(async()=>{ if(!(await DB.scrivi(ST))) toast('⚠️ Non riesco a salvare su questo dispositivo: scarica un backup da «Altro».'); },120); }
+
+/* ============================ LE OPZIONI ============================
+   Stanno in Altro → Opzioni. Sono della persona, non della nutrizionista: il nome con cui il Diario
+   la saluta, come conta l'acqua, i suoi tipi di allenamento. */
+const OPZ=()=>(ST.opzioni=ST.opzioni||{});
+const TIPI_DEF=['Palestra','Camminata','Corsa','Altro sport'];
+const tipiAtt=()=>{ const t=OPZ().tipiAtt; return Array.isArray(t)&&t.length?t:TIPI_DEF; };
+/* ⚠️ 14 novembre · L'ACQUA SI CONTA IN MILLILITRI, e si MOSTRA nell'unità scelta. Fuori casa nessuno
+   beve a bicchieri: c'è la bottiglietta, la borraccia. Dentro resta un numero solo (`acquaMl`), così
+   cambiare unità a metà mese non cambia quanto si è bevuto. L'obiettivo della nutrizionista arriva in
+   bicchieri (formato A) e diventa millilitri: un bicchiere = 250 ml. */
+const UNITA_ACQUA={
+  bicchiere:{t:'Bicchiere', uno:'bicchiere', piu:'bicchieri', ml:250},
+  bottiglietta:{t:'Bottiglietta da ½ litro', uno:'bottiglietta', piu:'bottigliette', ml:500},
+  borraccia:{t:'Borraccia da 750 ml', uno:'borraccia', piu:'borracce', ml:750},
+  bottiglia1:{t:'Bottiglia da 1 litro', uno:'bottiglia', piu:'bottiglie', ml:1000},
+  bottiglia15:{t:'Bottiglia da 1,5 litri', uno:'bottiglia', piu:'bottiglie', ml:1500} };
+const unitaAcqua=()=>UNITA_ACQUA[OPZ().acqua]||UNITA_ACQUA.bicchiere;
+const litri=ml=>`${fmt(ml/1000,2)} L`;
+const acquaMl=g=>!g?null:(g.acquaMl!=null?g.acquaMl:(g.acqua!=null?g.acqua*250:null));
+const obiettivoMl=()=>{ const b=P()&&P().acqua&&P().acqua.obiettivoBicchieri; return b?b*250:null; };
+const nomePersona=()=>String(OPZ().nome||(P()&&P().cliente&&P().cliente.nome)||'').trim();
+
+/* ============================ IL PIANO ============================ */
+const P=()=>ST.piano;
+const G=()=>(P()&&P().piano&&P().piano.giorni)||[];
+const PASTI=()=>(P()&&P().pasti)||[];
+/* i pasti non hanno più un colore ciascuno (14 nov): come in Shiftly, il colore è uno, il verde */
+function colorePasto(){ return 'var(--brand)'; }
+/* Quale giorno del piano segue una data, se nessuno l'ha scambiato.
+   ⚠️ Per NOME (il campo `settimana` lo scrive Nutrition, 0 = lunedì). Un piano di un giorno vale
+   ogni giorno. I giorni senza nome di settimana girano a rotazione dalla data d'inizio. */
+function gpDefault(data){
+  const gg=G(); if(gg.length<=1) return 0;
+  const i=gg.findIndex(g=>g.settimana===wd(data)); if(i>=0) return i;
+  const rot=gg.map((g,k)=>k).filter(k=>gg[k].settimana==null);
+  const pool=rot.length?rot:gg.map((g,k)=>k);
+  const off=((daysBetween(ST.inizio||oggi(),data)%pool.length)+pool.length)%pool.length;
+  return pool[off];
+}
+const giorno=data=>ST.giorni[data]||null;
+const giornoW=data=>(ST.giorni[data]=ST.giorni[data]||{pasti:{}});
+const gp=data=>{ const g=giorno(data); return (g&&g.gp!=null)?g.gp:gpDefault(data); };
+const voce=(data,pasto)=>{ const g=giorno(data); return (g&&g.pasti&&g.pasti[pasto])||null; };
+const voceW=(data,pasto)=>{ const g=giornoW(data); g.pasti=g.pasti||{}; return (g.pasti[pasto]=g.pasti[pasto]||{}); };
+/* Cosa dice il piano per QUEL pasto di QUELLA data, scambi compresi. */
+const contenuto=(data,pasto)=>{ const v=voce(data,pasto); return (v&&v.da)?v.da:{giorno:gp(data), pasto}; };
+function righe(c){ const gio=G()[c.giorno]; if(!gio) return [];
+  const pa=(gio.pasti||[]).find(x=>x.nome===c.pasto); return (pa&&pa.righe)||[]; }
+const nomeGiornoPiano=i=>{ const g=G()[i]; return g?(g.nome||`Giorno ${i+1}`):'—'; };
+
+/* ============================ GLI ESITI ============================ */
+const ESITI={
+  piano:{t:'Come da piano', ico:'✓', bg:'var(--brand-soft)', fg:'var(--brand-ink)', sub:'ho mangiato quello che c’era scritto'},
+  modificato:{t:'Con qualche cambio', ico:'≈', bg:'var(--warn-soft)', fg:'var(--warn)', sub:'il pasto del piano, ma diverso in qualcosa'},
+  sgarro:{t:'Sgarro', ico:'☺', bg:'var(--sgarro-bg)', fg:'var(--sgarro-fg)', sub:'fuori piano — capita, si scrive e basta'},
+  saltato:{t:'Saltato', ico:'–', bg:'var(--line-soft)', fg:'var(--muted)', sub:'non l’ho mangiato'}
+};
+function statoGiorno(data){
+  const ps=PASTI(); const g=giorno(data); if(!g) return 'vuoto';
+  const es=ps.map(p=>g.pasti&&g.pasti[p]&&g.pasti[p].esito).filter(Boolean);
+  if(!es.length) return 'vuoto';
+  if(es.includes('sgarro')) return 'sgarro';
+  if(es.length===ps.length && es.every(e=>e==='piano')) return 'pieno';
+  return 'mezzo';
+}
+
+/* ============================ ANNULLA ============================
+   Ogni gesto che cambia più di una cosa (tutto come da piano, uno scambio) si può annullare dal
+   messaggio che compare in basso. È la rete per chi tocca il tasto sbagliato. */
+let annullaDa=null;
+function conAnnulla(msg, prima){ annullaDa=prima; toast(msg, true); }
+
+/* ============================ VISTE ============================ */
+const UI={vista:'oggi', data:oggi(), mese:oggi().slice(0,7), misuraSel:null, pianoTab:'settimana'};
+function vai(v){ UI.vista=v; render(); window.scrollTo(0,0); }
+function render(){
+  const app=$('#app'), nav=$('#nav');
+  if(!P()){ nav.classList.add('hidden'); app.innerHTML=vBenvenuto(); return; }
+  nav.classList.remove('hidden');
+  nav.querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('on', b.dataset.go===UI.vista));
+  app.innerHTML = ({oggi:vOggi, mese:vMese, misure:vMisure, piano:vPiano, altro:vAltro}[UI.vista]||vOggi)();
+}
+
+/* 0.5 (16 nov) · LA TRAPPOLA DELL'IPHONE. Per iOS, Safari e l'icona nella Home sono due posti con
+   dati SEPARATI: un piano aperto in Safari, nell'icona non c'è. Il consiglio compare solo dove
+   la trappola esiste: iPhone/iPad, pagina pubblicata (https), non ancora aperta dall'icona.
+   Su Android il programma installato e Chrome condividono i dati: lì non serve. */
+function daInstallare(){
+  try{ if(!/^https?:$/.test(location.protocol)) return false;
+    const ios=/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+    const icona=navigator.standalone===true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    return ios && !icona; }catch(e){ return false; } }
+function vBenvenuto(){
+  return `<div class="welcome">
+    <div class="logo"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+    <h1>Il tuo diario</h1>
+    ${daInstallare()?`<div class="card installa" id="installa">
+      <b>Prima mettilo nella schermata Home</b>
+      <ol><li>Tocca <b>Condividi</b>, il quadrato con la freccia in su.</li>
+        <li>Scegli <b>Aggiungi alla schermata Home</b>.</li>
+        <li>Da quel momento apri il Diario <b>solo dall’icona</b>: quello che scrivi qui in Safari, nell’icona non c’è.</li></ol>
+      <p class="small">Non trovi la voce? Apri questa pagina in Safari.</p></div>`:''}
+    <p>Apri il piano che ti ha mandato la tua nutrizionista. Ogni sera segni com’è andata: bastano pochi tocchi.</p>
+    <div class="stack">
+      <button class="btn big" data-act="apriPiano">Apri il piano</button>
+      <button class="btn ghost" data-act="esempio">Prova con un piano di esempio</button>
+      <button class="link" data-act="ripristina" style="margin-top:6px">Ho un backup del diario</button>
+    </div>
+    <p class="small" style="margin-top:26px">I dati restano su questo dispositivo. Nessun account, nessun server.</p>
+  </div>`;
+}
+
+function intestazione(titolo, conGiorno){
+  const nome=nomePersona();
+  const d=UI.data, isOggi=d===oggi();
+  return `<header class="top">
+    <div class="hello">${nome?`Ciao, ${esc(nome)}`:'Ciao!'}${P().esempio?' · <b>piano di esempio</b>':''}</div>
+    ${conGiorno?`<div class="dayrow">
+      <button class="iconbtn" data-act="giornoPrima" aria-label="Giorno prima"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <h1 id="titolo-giorno">${isOggi?'Oggi':cap(dataLunga(d))}</h1>
+      ${isOggi?'':`<button class="todaylink" data-act="tornaOggi">Torna a oggi</button>`}
+      <button class="iconbtn" data-act="giornoDopo" aria-label="Giorno dopo" ${d>=oggi()?'disabled':''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+    </div>${isOggi?`<div class="small muted" style="margin:0 0 0 44px" id="sotto-titolo">${cap(dataLunga(d))}${notteFonda()?` · <b>sono le ${new Date().getHours()}:${String(new Date().getMinutes()).padStart(2,'0')}: conta ancora come ${esc(GIORNI[wd(d)])}</b>`:''}</div>`:''}`
+    :`<div class="dayrow"><h1>${titolo}</h1></div>`}
+  </header>`;
+}
+
+function giorniMancanti(){ const o=oggi(), out=[];
+  for(let i=7;i>=1;i--){ const x=addDays(o,-i); if(ST.inizio && x<ST.inizio) continue; if(statoGiorno(x)==='vuoto') out.push(x); }
+  return out; }
+function vOggi(){
+  const d=UI.data, g=giorno(d)||{}, gpi=gp(d), scamb=g.gp!=null;
+  const ps=PASTI();
+  const nonSegnati=ps.filter(p=>!(voce(d,p)&&voce(d,p).esito)).length;
+  const ora=new Date().getHours();
+  const banners=[];
+  if(P().esempio) banners.push(`<div class="banner warn"><div class="grow">È un <b>piano di esempio</b>, per provare. Quando arriva quello vero: Altro → Apri un piano nuovo.</div></div>`);
+  if(d===oggi() && wd(d)===6 && !ST.misure[d] && (P().misure||[]).length)
+    banners.push(`<div class="banner"><div class="grow">Oggi è <b>domenica</b>: è il giorno delle misure.</div><button data-go="misure">Misurati</button></div>`);
+  if(d===oggi() && ora>=18 && nonSegnati===ps.length && ps.length)
+    banners.push(`<div class="banner"><div class="grow"><b>Com’è andata oggi?</b> Se hai seguito il piano basta il tasto verde «Tutto come da piano».</div></div>`);
+  /* ⚠️ 14 novembre · tutti i giorni mancanti degli ultimi sette, non solo ieri: dal collaudo, sabato
+     non diceva che mancava anche giovedì, e segnato venerdì l'avviso spariva. */
+  const mancanti=giorniMancanti();
+  if(d===oggi() && mancanti.length)
+    banners.push(`<div class="banner warn" id="mancanti"><div class="grow">${mancanti.length===1?'Manca un giorno':`Mancano ${mancanti.length} giorni`}:
+      <div class="chips" style="margin-top:6px">${mancanti.map(x=>`<button class="chip" data-act="vaiData" data-d="${x}">${esc(GIORNI[wd(x)].slice(0,3))} ${parse(x).getDate()}</button>`).join('')}</div></div></div>`);
+  return intestazione('',true)+`<main>
+    ${banners.join('')}
+    <div class="plandayline"><span class="grow">Segue il piano di <b>${esc(nomeGiornoPiano(gpi))}</b></span>
+      <button class="swapchip ${scamb?'on':''}" data-act="scambiaGiorno">⇄ ${scamb?'Scambiato · cambia':'Scambia il giorno'}</button></div>
+    ${ps.map(p=>cardPasto(d,p)).join('')}
+    ${nonSegnati?`<button class="btn big stickybtn" data-act="tuttoPiano" style="margin:4px 0 4px">✓ ${nonSegnati===ps.length?'Tutto come da piano':`Il resto come da piano (${nonSegnati})`}</button>
+      <p class="small muted" style="text-align:center;margin:4px 0 14px">Se un pasto è andato diversamente, toccalo prima.</p>`
+      :`<p class="small muted" style="text-align:center;margin:6px 0 14px">✓ Tutti i pasti sono segnati. Per cambiarne uno, toccalo.</p>`}
+    <div class="h2">Acqua</div>${cardAcqua(d)}
+    <div class="h2">Allenamento</div>${cardAttivita(d)}
+    <div class="h2">Fuori pasto e note</div>
+    <div class="card"><textarea id="nota-giorno" rows="2" placeholder="Uno snack, come stai, il sonno…" data-nota="${d}">${esc(g.nota||'')}</textarea></div>
+  </main>`;
+}
+
+function cardPasto(d,p){
+  const v=voce(d,p)||{}, c=contenuto(d,p), rr=righe(c);
+  const es=v.esito, E=es?ESITI[es]:null;
+  const scelte=Array.isArray(v.scelte)?v.scelte:[];
+  const lista = rr.length? `<ul>${rr.map((r,i)=>{ const alt=Array.isArray(r.alt)?r.alt:[];
+      if(!alt.length) return `<li>${esc(r.t)} ${r.qta?`<span class="q">· ${esc(r.qta)}</span>`:''}</li>`;
+      const sc=scelte[i]||0; const tutte=[r,...alt];
+      return `<li><div class="alts">${tutte.map((x,k)=>`<button class="alt ${k===sc?'on':''}" data-act="scegli" data-p="${esc(p)}" data-i="${i}" data-k="${k}">${esc(x.t)}${x.qta?` · ${esc(x.qta)}`:''}</button>`).join('')}</div></li>`; }).join('')}</ul>`
+    : `<div class="empty-meal">Niente in programma</div>`;
+  const sc=v.scambioCon;
+  const swap = sc ? `<div class="swapnote">⇄ scambiato con: ${esc(sc.pasto)}${sc.data!==d?` di ${esc(dataLunga(sc.data))}`:''}</div>` : '';
+  return `<div class="meal ${es?'segnato':''}" data-act="apriPasto" data-p="${esc(p)}">
+    <div class="mhead"><span class="mname">${esc(p)}</span>
+      <span class="pill ${es||'vuoto'}">${E?`${E.ico} ${E.t}`:'da segnare'}</span></div>
+    ${lista}${swap}${v.nota?`<div class="mnote">“${esc(v.nota)}”</div>`:''}${fotoDi(d,p)?`<img class="thumb" src="${fotoDi(d,p)}" alt="La foto di ${esc(p.toLowerCase())}">`:''}
+  </div>`;
+}
+
+function cardAcqua(d){
+  const ml=acquaMl(giorno(d))||0, ob=obiettivoMl(), U=unitaAcqua();
+  const n=ml/U.ml, nTxt=Number.isInteger(n)?String(n):fmt(n,1);
+  const perc=ob?Math.min(100,ml/ob*100):0;
+  return `<div class="card">
+    <div class="rowline"><div class="lab"><span id="acqua-n" style="font-size:20px">${litri(ml)}</span>
+        <div class="small muted" style="font-weight:400">${nTxt} ${n===1?U.uno:U.piu}${ob?` · obiettivo ${litri(ob)}`:''}</div></div>
+      <div class="stepper"><button data-act="acqua" data-v="-1" aria-label="Una ${esc(U.uno)} in meno">−</button><button data-act="acqua" data-v="1" aria-label="Una ${esc(U.uno)} in più" style="width:auto;padding:0 14px;font-size:15px">+ ${esc(U.uno)}</button></div></div>
+    ${U.ml!==250?`<div style="margin-top:8px;display:flex;gap:6px;justify-content:flex-end"><button class="chip" data-act="acquaMl" data-v="-250">− bicchiere</button><button class="chip" data-act="acquaMl" data-v="250">+ bicchiere</button></div>`:''}
+    ${ob?`<div style="height:8px;border-radius:4px;background:var(--line-soft);margin-top:12px;overflow:hidden"><div style="height:100%;width:${perc}%;background:var(--water);border-radius:4px"></div></div>`:''}
+    <div class="small muted" style="margin-top:8px">Conti a ${esc(U.piu)} (${U.ml} ml). Si cambia in <button class="link" data-go="altro">Altro → Opzioni</button>.</div>
+  </div>`;
+}
+function cardAttivita(d){
+  const a=(giorno(d)||{}).att||null;
+  return `<div class="card">
+    <div class="seg"><button class="${a&&a.fatta===true?'on':''}" data-act="att" data-v="si">✓ Fatto</button><button class="${a&&a.fatta===false?'on no':''}" data-act="att" data-v="no">Oggi no</button></div>
+    ${a&&a.fatta?`<div class="small muted" style="margin-top:10px">Che allenamento? <i>(facoltativo)</i></div><div class="chips" style="margin-top:6px">${tipiAtt().map(t=>`<button class="chip ${a.tipo===t?'on':''}" data-act="attTipo" data-v="${t}">${t}</button>`).join('')}</div>`:''}
+  </div>`;
+}
+
+/* ---------- il mese ---------- */
+function vMese(){
+  const [y,m]=UI.mese.split('-').map(Number);
+  const primo=`${UI.mese}-01`, giorniMese=new Date(y,m,0).getDate();
+  const off=wd(primo), oggiS=oggi();
+  let celle=['L','M','M','G','V','S','D'].map(x=>`<div class="wd">${x}</div>`).join('');
+  for(let i=0;i<off;i++) celle+=`<div class="d out"></div>`;
+  for(let k=1;k<=giorniMese;k++){ const ds=`${UI.mese}-${String(k).padStart(2,'0')}`;
+    const fut=ds>oggiS, a=(giorno(ds)||{}).att;
+    celle+=`<button class="d ${fut?'fut':''} ${ds===oggiS?'today':''}" data-act="apriGiorno" data-d="${ds}" ${fut?'disabled':''} aria-label="${esc(dataLunga(ds))}">${k}<span class="dot ${(fut||(ST.inizio&&ds<ST.inizio))?'nogym':statoGiorno(ds)}"></span><span class="dot ${a&&a.fatta?'gym':'nogym'}"></span></button>`; }
+  const S=statMese(UI.mese);
+  const prossimo=UI.mese<oggiS.slice(0,7);
+  return intestazione('Il mese',false)+`<main>
+    <div class="card">
+      <div class="monthbar"><button class="iconbtn" data-act="mese" data-v="-1" aria-label="Mese prima"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <h2>${MESI[m-1]} ${y}</h2>
+        <button class="iconbtn" data-act="mese" data-v="1" aria-label="Mese dopo" ${prossimo?'':'disabled'}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button></div>
+      <div class="cal">${celle}</div>
+      <div class="legend"><span><i class="dot pieno"></i>tutto come da piano</span><span><i class="dot mezzo"></i>in parte</span><span><i class="dot sgarro"></i>con uno sgarro</span><span><i class="dot"></i>non segnato</span><span><i class="dot gym" style="margin:0"></i>allenamento</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="st-piano">${S.pastiSegnati?fmt(S.percPiano,0)+' %':'—'}</div><div class="l">dei pasti segnati erano come da piano<br>(${S.pastiPiano} su ${S.pastiSegnati})</div></div>
+      <div class="stat"><div class="v" id="st-gym">${S.allenamenti}</div><div class="l">${S.allenamenti===1?'giorno':'giorni'} di allenamento</div></div>
+      <div class="stat"><div class="v" id="st-acqua">${S.giorniAcqua?litri(S.mediaAcqua):'—'}</div><div class="l">d’acqua al giorno, in media</div></div>
+      <div class="stat"><div class="v" id="st-sgarri">${S.sgarri}</div><div class="l">${S.sgarri===1?'sgarro':'sgarri'}${S.scambi?` · ${S.scambi} ${S.scambi===1?'scambio':'scambi'}`:''}</div></div>
+    </div>
+    ${sgarriMese(UI.mese)}
+    ${S.giorniVuoti?`<p class="small muted" style="margin:12px 4px">${S.giorniVuoti} giorn${S.giorniVuoti===1?'o':'i'} di questo mese ${S.giorniVuoti===1?'non è segnato: non entra nei conti e non conta come rispettato':'non sono segnati: non entrano nei conti e non contano come rispettati'}.</p>`:''}
+  </main>`;
+}
+/* ⚠️ 14 novembre · dalla prova di Giuseppe: «vedo il puntino dello sgarro ma non vedo dove».
+   Sotto i numeri, l'elenco degli sgarri del mese col giorno, il pasto e la nota; e ogni giorno del
+   calendario si apre in un riassunto. */
+function sgarriMese(mese){
+  const o=oggi(), out=[];
+  for(const ds of Object.keys(ST.giorni).sort()){ if(!ds.startsWith(mese) || ds>o) continue;
+    for(const p of PASTI()){ const v=voce(ds,p); if(v&&v.esito==='sgarro') out.push({ds,p,nota:v.nota||''}); } }
+  if(!out.length) return '';
+  return `<div class="h2">Gli sgarri del mese</div><div class="card" id="elenco-sgarri"><ul class="list">${out.map(x=>`<li style="cursor:pointer" data-act="apriGiorno" data-d="${x.ds}"><span><b>${esc(cap(dataLunga(x.ds)))}</b> · ${esc(x.p)}${x.nota?`<br><span class="small muted">“${esc(x.nota)}”</span>`:''}</span><span class="muted">›</span></li>`).join('')}</ul></div>`;
+}
+function riepilogoGiorno(ds){
+  const g=giorno(ds)||{}, ml=acquaMl(g), a=g.att;
+  const righeP=PASTI().map(p=>{ const v=voce(ds,p)||{}, E=v.esito?ESITI[v.esito]:null, c=contenuto(ds,p);
+    const fo=fotoDi(ds,p);
+    return `<li>${fo?`<img class="thumb mini" src="${fo}" alt="">`:''}<span class="grow"><b>${esc(p)}</b>${v.da?` <span class="small muted">⇄ da ${esc(nomeGiornoPiano(c.giorno))}${c.pasto!==p?` (${esc(c.pasto.toLowerCase())})`:''}</span>`:''}${v.nota?`<br><span class="small muted">“${esc(v.nota)}”</span>`:''}</span><span class="pill ${v.esito||'vuoto'}">${E?`${E.ico} ${E.t}`:'non segnato'}</span></li>`; }).join('');
+  foglio(`<h3>${esc(cap(dataLunga(ds)))}</h3><p class="sub">Segue il piano di <b>${esc(nomeGiornoPiano(gp(ds)))}</b>${g.scambioGiorno?' (scambiato)':''}</p>
+    <ul class="list" id="riepilogo">${righeP}
+      <li><span><b>Acqua</b></span><span>${ml?litri(ml):'<span class="muted">non segnata</span>'}</span></li>
+      <li><span><b>Allenamento</b></span><span>${a?(a.fatta?`✓ ${esc(a.tipo||'fatto')}`:'no'):'<span class="muted">non segnato</span>'}</span></li>
+      ${g.nota?`<li><span><b>Note</b><br><span class="small muted">${esc(g.nota)}</span></span></li>`:''}</ul>
+    <div class="foot"><button class="btn ghost" data-s="chiudi">Chiudi</button><button class="btn" data-s="vai">Apri il giorno</button></div>`,
+    d=>{ if(d.s==='vai'){ chiudiFoglio(true); UI.data=ds; UI.vista='oggi'; render(); window.scrollTo(0,0); } });
+}
+function statMese(mese){
+  const S={pastiSegnati:0,pastiPiano:0,allenamenti:0,acquaTot:0,giorniAcqua:0,sgarri:0,scambi:0,giorniVuoti:0};
+  const [y,m]=mese.split('-').map(Number), n=new Date(y,m,0).getDate(), o=oggi();
+  for(let k=1;k<=n;k++){ const ds=`${mese}-${String(k).padStart(2,'0')}`; if(ds>o) break;
+    if(ST.inizio && ds<ST.inizio) continue;
+    const g=giorno(ds);
+    if(statoGiorno(ds)==='vuoto') S.giorniVuoti++;
+    if(!g) continue;
+    if(g.gp!=null) S.scambi+=0.5;            /* uno scambio di giorni tocca due date */
+    for(const p of PASTI()){ const v=g.pasti&&g.pasti[p]; if(!v) continue;
+      if(v.scambioCon) S.scambi+=0.5;
+      if(!v.esito) continue; S.pastiSegnati++;
+      if(v.esito==='piano') S.pastiPiano++; if(v.esito==='sgarro') S.sgarri++; }
+    if(g.att&&g.att.fatta) S.allenamenti++;
+    const ml=acquaMl(g); if(ml!=null && ml>0){ S.acquaTot+=ml; S.giorniAcqua++; } }
+  S.scambi=Math.round(S.scambi);
+  S.percPiano=S.pastiSegnati? S.pastiPiano/S.pastiSegnati*100 : 0;
+  S.mediaAcqua=S.giorniAcqua? S.acquaTot/S.giorniAcqua : 0;
+  return S;
+}
+
+/* ---------- le misure ---------- */
+function vMisure(){
+  const M=(P().misure||[]);
+  if(!M.length) return intestazione('Misure',false)+`<main><div class="card">La tua nutrizionista non ha indicato misure da prendere a casa.</div></main>`;
+  const date=Object.keys(ST.misure).sort();
+  const ultima=date.length?date[date.length-1]:null;
+  const val=ST.misure[oggi()]||{};
+  UI.misuraSel = UI.misuraSel && M.some(m=>m.k===UI.misuraSel) ? UI.misuraSel : M[0].k;
+  const sel=M.find(m=>m.k===UI.misuraSel);
+  return intestazione('Misure',false)+`<main>
+    <div class="banner"><div class="grow">Una volta a settimana, <b>la domenica</b>, al mattino e prima di colazione.${ultima?` Ultima volta: ${esc(dataLunga(ultima))}.`:''}</div></div>
+    <div class="card">
+      <div class="mgrid">${M.map(m=>`<div class="mfield" data-mf="${esc(m.k)}"><label for="mi-${esc(m.k)}">${esc(m.l)}</label>
+        <div class="wrap"><input id="mi-${esc(m.k)}" inputmode="decimal" autocomplete="off" data-mis="${esc(m.k)}" value="${esc(val[m.k]!=null?String(val[m.k]).replace('.',','):'')}" placeholder="—"><span class="u">${esc(m.u||'')}</span></div><div class="e"></div></div>`).join('')}</div>
+      <button class="btn big" data-act="salvaMisure" style="margin-top:14px">Salva le misure di oggi</button>
+    </div>
+    ${date.length?`<div class="h2">Andamento</div>
+    <div class="card">
+      <div class="chips" style="margin:0 0 8px">${M.map(m=>`<button class="chip ${m.k===UI.misuraSel?'on':''}" data-act="misuraSel" data-v="${esc(m.k)}">${esc(m.l)}</button>`).join('')}</div>
+      ${grafico(sel)}
+    </div>
+    <div class="card"><table class="hist"><thead><tr><th>Data</th>${M.slice(0,4).map(m=>`<th>${esc(m.l)}</th>`).join('')}</tr></thead><tbody>
+      ${date.slice().reverse().slice(0,12).map((ds,i,arr)=>{ const prev=arr[i+1]; return `<tr><td>${esc(parse(ds).toLocaleDateString('it-IT',{day:'numeric',month:'short'}))}</td>${M.slice(0,4).map(m=>{ const v=numIt(ST.misure[ds][m.k]), pv=prev?numIt(ST.misure[prev][m.k]):null;
+        const dl=(v!=null&&pv!=null)?v-pv:null; return `<td>${v!=null?fmt(v):'—'}${dl!=null&&Math.abs(dl)>=0.05?`<span class="delta">${dl>0?'+':'−'}${fmt(Math.abs(dl))}</span>`:''}</td>`; }).join('')}</tr>`; }).join('')}
+    </tbody></table>${M.length>4?`<p class="small muted" style="margin:8px 0 0">Le altre misure si vedono nel grafico, toccando il loro nome.</p>`:''}</div>`:''}
+  </main>`;
+}
+function grafico(m){
+  const pts=Object.keys(ST.misure).sort().map(ds=>({ds,v:numIt(ST.misure[ds][m.k])})).filter(x=>x.v!=null);
+  if(pts.length<2) return `<p class="small muted" style="margin:6px 0">${pts.length?`${esc(m.l)}: ${fmt(pts[0].v)} ${esc(m.u)}. `:''}Il grafico compare dalla seconda misura.</p>`;
+  const W=320,H=150,px=34,py=14; const vs=pts.map(p=>p.v); let lo=Math.min(...vs), hi=Math.max(...vs); if(hi-lo<1){ lo-=0.5; hi+=0.5; }
+  const X=i=>px+(W-px-10)*(i/(pts.length-1)), Y=v=>py+(H-py*2-10)*(1-(v-lo)/(hi-lo));
+  const prima=pts[0], ult=pts[pts.length-1], dl=ult.v-prima.v;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(m.l)} nel tempo">
+    <line class="gl" x1="${px}" x2="${W-10}" y1="${Y(hi)}" y2="${Y(hi)}"/><line class="gl" x1="${px}" x2="${W-10}" y1="${Y(lo)}" y2="${Y(lo)}"/>
+    <text class="ax" x="2" y="${Y(hi)+3}">${fmt(hi)}</text><text class="ax" x="2" y="${Y(lo)+3}">${fmt(lo)}</text>
+    <polyline class="ln" points="${pts.map((p,i)=>`${X(i)},${Y(p.v)}`).join(' ')}"/>
+    ${pts.map((p,i)=>`<circle class="pt" cx="${X(i)}" cy="${Y(p.v)}" r="3.5"/>`).join('')}
+  </svg><p class="small muted" style="margin:4px 0 0">Dalla prima misura: <b style="color:var(--ink)">${dl>0?'+':dl<0?'−':''}${fmt(Math.abs(dl))} ${esc(m.u)}</b> (${fmt(prima.v)} → ${fmt(ult.v)}).</p>`;
+}
+
+/* ---------- il piano ---------- */
+/* ============================ LA LISTA DELLA SPESA ============================
+   14 novembre, idea di Giuseppe: dal piano si ricava già cosa serve nella settimana. Spunti quello che
+   hai; resta «da comprare» il resto, e al supermercato spunti man mano. Si aggiunge anche quello che
+   non è nel piano. Le quantità si sommano solo quando TUTTE le volte dicono i grammi (o i ml): se
+   una dice «1 cucchiaio», la somma sarebbe falsa, e allora si dice quante volte compare. */
+const normT=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+const SPESA=()=>(ST.spesa=ST.spesa||{presi:{}, extra:[]});
+/* «2 uova + 100 ml di albume» non sono 100 ml: con un «+» la quantità non si somma. */
+function quantitaDi(qta){ if(String(qta||'').includes('+')) return null; const m=[...String(qta||'').matchAll(/(\d+(?:[.,]\d+)?)\s*(g|ml)\b/gi)]; if(!m.length) return null;
+  const u=m[m.length-1]; return {n:parseFloat(u[1].replace(',','.')), u:u[2].toLowerCase()}; }
+function listaSpesa(){
+  const gg=G(), peso=gg.length===1?7:1, map=new Map();     /* un giorno tipo vale sette volte */
+  gg.forEach(gio=>(gio.pasti||[]).forEach(pa=>(pa.righe||[]).forEach(r=>{ const k=normT(r.t); if(!k) return;
+    let it=map.get(k); if(!it){ it={k, t:String(r.t).trim(), cat:String(r.cat||''), volte:0, q:{}, sommabile:true, alt:new Set()}; map.set(k,it); }
+    it.volte+=peso; const q=quantitaDi(r.qta); if(q) it.q[q.u]=(it.q[q.u]||0)+q.n*peso; else it.sommabile=false;
+    (r.alt||[]).forEach(a=>{ if(normT(a.t)!==k) it.alt.add(String(a.t).trim()); }); })));
+  return [...map.values()].sort((a,b)=>(a.cat||'~').localeCompare(b.cat||'~','it') || a.t.localeCompare(b.t,'it'));
+}
+function dettaglioSpesa(it){ const u=Object.keys(it.q);
+  const quanto = (it.sommabile && u.length===1) ? (it.q[u[0]]>=1000 ? `circa ${fmt(it.q[u[0]]/1000,1)} ${u[0]==='g'?'kg':'litri'}` : `circa ${fmt(it.q[u[0]],0)} ${u[0]}`) : '';
+  return [quanto, `${it.volte} ${it.volte===1?'volta':'volte'} nella settimana`].filter(Boolean).join(' · '); }
+function vSpesa(){
+  const S=SPESA(), lista=listaSpesa(), extra=S.extra||[];
+  const voci=[...lista.map(it=>({key:'p:'+it.k, t:it.t, sub:dettaglioSpesa(it), alt:[...it.alt], cat:it.cat})),
+              ...extra.map(x=>({key:'x:'+x.id, t:x.t, sub:'aggiunto da te', alt:[], cat:'', extra:x.id}))];
+  const preso=v=>!!S.presi[v.key], daComprare=voci.filter(v=>!preso(v)), presi=voci.filter(preso);
+  const conCat=voci.some(v=>v.cat);
+  const riga=v=>`<li class="spesa ${preso(v)?'presa':''}" data-act="spunta" data-k="${esc(v.key)}" role="checkbox" aria-checked="${preso(v)}">
+      <span class="tick">${preso(v)?'✓':''}</span><span class="grow"><b>${esc(v.t)}</b>${v.sub?`<small>${esc(v.sub)}</small>`:''}${v.alt.length?`<small>oppure: ${v.alt.map(esc).join(', ')}</small>`:''}</span>
+      ${v.extra?`<button class="link" data-act="togliExtra" data-v="${esc(v.extra)}" aria-label="Togli ${esc(v.t)}" style="text-decoration:none;font-size:18px">×</button>`:''}</li>`;
+  const gruppi=l=>{ if(!conCat) return `<ul class="list">${l.map(riga).join('')}</ul>`;
+    const per=new Map(); l.forEach(v=>{ const c=v.cat||'Altro'; if(!per.has(c)) per.set(c,[]); per.get(c).push(v); });
+    return [...per.entries()].map(([c,vv])=>`<div class="small muted" style="font-weight:700;margin:10px 0 2px">${esc(c)}</div><ul class="list">${vv.map(riga).join('')}</ul>`).join(''); };
+  return `
+    <div class="card"><b>La spesa della settimana</b>
+      <div class="small muted" style="margin-top:2px">Dal tuo piano. Spunta quello che <b>hai già</b>: resta da comprare il resto. Al supermercato spunti man mano.</div>
+      <div class="small" style="margin-top:8px" id="spesa-conto"><b>${daComprare.length}</b> da comprare · ${presi.length} già ${presi.length===1?'preso':'presi'}</div></div>
+    <div class="h2">Da comprare</div>
+    <div class="card" id="da-comprare">${daComprare.length?gruppi(daComprare):'<p class="muted" style="margin:0">Hai tutto. 🎉</p>'}
+      <div class="rowline" style="margin-top:10px"><input type="text" id="nuova-voce" placeholder="Aggiungi altro (es. detersivo)"><button class="btn soft" data-act="aggiungiVoce">Aggiungi</button></div></div>
+    ${presi.length?`<div class="h2">Già ${presi.length===1?'preso':'presi'}</div><div class="card" id="gia-presi">${gruppi(presi)}</div>
+    <button class="btn ghost" data-act="ricominciaSpesa" style="width:100%;margin-top:4px">Ricomincia la lista</button>`:''}`;
+}
+
+function vPiano(){
+  const pp=P().piano, st=P().studio||{};
+  const tabs=`<div class="seg" style="margin:0 0 12px"><button class="${UI.pianoTab!=='spesa'?'on':''}" data-act="pianoTab" data-v="settimana">La settimana</button><button class="${UI.pianoTab==='spesa'?'on':''}" data-act="pianoTab" data-v="spesa">🛒 Lista della spesa</button></div>`;
+  if(UI.pianoTab==='spesa') return intestazione('Il piano',false)+`<main>${tabs}${vSpesa()}</main>`;
+  return intestazione('Il piano',false)+`<main>${tabs}
+    <div class="card"><b>${esc(pp.nome||'Piano')}</b>${pp.data?` <span class="small muted">· dal ${esc(parse(pp.data).toLocaleDateString('it-IT'))}</span>`:''}
+      ${st.nutrizionista?`<div class="small muted" style="margin-top:2px">${esc(st.nutrizionista)}${st.telefono?` · ${esc(st.telefono)}`:''}</div>`:''}
+      ${pp.note?`<div style="margin-top:10px;white-space:pre-wrap">${esc(pp.note)}</div>`:''}</div>
+    ${G().map((gio,gi)=>`<div class="card pday"><h3>${esc(gio.nome||`Giorno ${gi+1}`)}</h3>
+      ${PASTI().map(p=>{ const rr=righe({giorno:gi,pasto:p}); return `<div class="pm"><b>${esc(p)}</b> ${rr.length?rr.map(r=>`${esc(r.t)}${r.qta?` <span class="muted">${esc(r.qta)}</span>`:''}${(r.alt||[]).length?` <span class="muted">oppure</span> ${r.alt.map(a=>`${esc(a.t)}${a.qta?` <span class="muted">${esc(a.qta)}</span>`:''}`).join(' <span class="muted">oppure</span> ')}`:''}`).join(' · '):'<span class="muted">—</span>'}</div>`; }).join('')}
+    </div>`).join('')}
+  </main>`;
+}
+
+/* ---------- altro ---------- */
+function vAltro(){
+  const date=Object.keys(ST.giorni).filter(d=>statoGiorno(d)!=='vuoto'||(acquaMl(ST.giorni[d])||ST.giorni[d].att)).sort();
+  return intestazione('Altro',false)+`<main>
+    <div class="card">
+      <button class="setrow" data-act="mandaDiario"><span class="grow"><b>Manda il diario alla nutrizionista</b><small>${ST.ultimoInvio?`Ultimo file preparato: ${esc(dataLunga(ST.ultimoInvio))}`:'Un file da mandarle su WhatsApp o per email'}</small></span>›</button>
+      <button class="setrow" data-act="apriPiano"><span class="grow"><b>Apri un piano nuovo</b><small>Quando la nutrizionista te ne manda un altro. Il diario resta.</small></span>›</button>
+    </div>
+    <div class="h2">Opzioni</div>
+    <div class="card" id="opzioni">
+      <label class="small muted" for="opt-nome" style="font-weight:600">Il nome con cui ti saluto</label>
+      <input type="text" id="opt-nome" data-opt="nome" value="${esc(OPZ().nome||'')}" placeholder="${esc((P().cliente&&P().cliente.nome)||'Il tuo nome')}" style="margin:4px 0 14px">
+      <div class="small muted" style="font-weight:600">L’acqua la conti a</div>
+      <div class="chips" style="margin-top:6px">${Object.entries(UNITA_ACQUA).map(([k,U])=>`<button class="chip ${unitaAcqua()===U?'on':''}" data-act="optAcqua" data-v="${k}">${esc(U.t)}</button>`).join('')}</div>
+      <div class="small muted" style="font-weight:600;margin-top:14px">I tuoi allenamenti</div>
+      <div class="chips" style="margin-top:6px">${tipiAtt().map(t=>`<span class="chip on" style="display:inline-flex;gap:6px;align-items:center">${esc(t)}<button class="link" style="text-decoration:none" data-act="togliTipo" data-v="${esc(t)}" aria-label="Togli ${esc(t)}">×</button></span>`).join('')}</div>
+      <div class="rowline" style="margin-top:8px"><input type="text" id="nuovo-tipo" placeholder="Aggiungi (es. Nuoto, Yoga)"><button class="btn soft" data-act="aggiungiTipo">Aggiungi</button></div>
+    </div>
+    <div class="h2">I tuoi dati</div>
+    <div class="card">
+      <button class="setrow" data-act="backup"><span class="grow"><b>Scarica un backup</b><small>Tutto il diario in un file. Tienilo al sicuro.</small></span>›</button>
+      <button class="setrow" data-act="ripristina"><span class="grow"><b>Ripristina un backup</b><small>Sostituisce il diario di questo dispositivo</small></span>›</button>
+      <button class="setrow" data-act="cancellaTutto" style="color:var(--bad)"><span class="grow"><b>Cancella tutto</b><small>Piano e diario, da questo dispositivo</small></span>›</button>
+    </div>
+    <p class="small muted" style="margin:14px 6px">${date.length} giorn${date.length===1?'o':'i'} nel diario. I dati stanno solo su questo dispositivo, in questo browser: se cancelli i dati di navigazione, li perdi. Per questo c’è il backup. · Shiftly Diario ${APP_VERSION}</p>
+  </main>`;
+}
+
+/* ============================ IL FOGLIO DAL BASSO ============================ */
+function foglio(html, onClick, opz={}){
+  chiudiFoglio(true);
+  /* il messaggio in basso coprirebbe i tasti del foglio: quando si apre un foglio, sparisce */
+  const t=$('#toast'); if(t){ t.remove(); annullaDa=null; }
+  const back=document.createElement('div'); back.className='sheet-back'; back.id='sheet';
+  back.innerHTML=`<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  back._guardia=opz.guardia||null;
+  back.addEventListener('mousedown',e=>{ if(e.target===back) chiudiFoglio(); });
+  back.addEventListener('click',e=>{ const b=e.target.closest('[data-s]'); if(!b) return; if(b.dataset.s==='chiudi') return chiudiFoglio(); onClick&&onClick(b.dataset, b); });
+  document.body.appendChild(back); return back;
+}
+/* `forza`: chiude anche con una bozza non salvata. Senza, chiede alla guardia del foglio. */
+function chiudiFoglio(forza){ const s=$('#sheet'); if(!s) return true; if(!forza && s._guardia && !s._guardia()) return false; s.remove(); return true; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') chiudiFoglio();
+  if(e.key==='Enter' && e.target.id==='nuova-voce'){ e.preventDefault(); AZ.aggiungiVoce(); }
+  if(e.key==='Enter' && e.target.id==='nuovo-tipo'){ e.preventDefault(); AZ.aggiungiTipo(); } });
+function chiedi({titolo,testo,ok='Conferma',danger=false}){
+  return new Promise(res=>{ let v=false;
+    const s=foglio(`<h3>${titolo}</h3><p class="sub">${testo}</p><div class="foot"><button class="btn ghost" data-s="chiudi">Annulla</button><button class="btn ${danger?'danger':''}" data-s="ok">${esc(ok)}</button></div>`,
+      d=>{ if(d.s==='ok'){ v=true; chiudiFoglio(); } });
+    const obs=new MutationObserver(()=>{ if(!document.body.contains(s)){ obs.disconnect(); res(v); } }); obs.observe(document.body,{childList:true}); });
+}
+
+/* ⚠️ 14 novembre · IL FOGLIO DEL PASTO HA UNA BOZZA, E SI SALVA SOLO CON «SALVA».
+   Nella prima versione toccare un esito salvava e chiudeva subito: la nota scritta DOPO andava
+   persa, e toccando fuori dal foglio si perdeva tutto senza avviso. Dalla prova di Giuseppe: «non
+   ti salva bene le cose e non si capisce se è da segnare o segnato». Adesso si sceglie, si scrive,
+   e si salva; se si prova a chiudere con modifiche non salvate, il foglio non si chiude e lo dice. */
+function apriPasto(p){
+  const d=UI.data, v=voce(d,p)||{};
+  const bozza={esito:v.esito||null, nota:v.nota||'', foto:fotoDi(d,p), fotoCambiata:false};
+  const cambiata=()=>bozza.esito!==(v.esito||null) || bozza.nota.trim()!==(v.nota||'') || bozza.fotoCambiata;
+  const riquadroFoto=()=>bozza.foto
+    ? `<div class="fotobox"><img src="${bozza.foto}" alt="La foto del pasto" id="foto-anteprima"><div class="grow"><button class="btn ghost" data-s="foto" style="width:100%">📷 Cambia la foto</button><button class="link" data-s="togliFoto" style="margin-top:8px">Togli la foto</button></div></div>`
+    : `<button class="btn ghost" data-s="foto" style="width:100%">📷 Aggiungi una foto</button>`;
+  const segnaposto=e=>e==='modificato'?'Cosa hai cambiato?':e==='sgarro'?'Cosa hai mangiato? (se vuoi)':e==='saltato'?'Perché, se vuoi':'Una nota, se vuoi';
+  const html=`<h3>${esc(p)}</h3><p class="sub">${esc(cap(dataLunga(d)))} · com’è andata?</p>
+    <div class="opts">${Object.entries(ESITI).map(([k,E])=>`<button class="opt ${bozza.esito===k?'on':''}" data-s="esito" data-v="${k}" aria-pressed="${bozza.esito===k}"><span class="ico" style="background:${E.bg};color:${E.fg}">${E.ico}</span><span>${E.t}<small>${E.sub}</small></span></button>`).join('')}</div>
+    <div style="margin-top:12px"><textarea id="nota-pasto" rows="2" placeholder="${esc(segnaposto(bozza.esito))}">${esc(bozza.nota)}</textarea></div>
+    <div style="margin-top:10px" id="riquadro-foto">${riquadroFoto()}</div>
+    <input type="file" id="file-foto" accept="image/*" capture="environment" class="hidden">
+    <p class="small" id="bozza-stato" style="margin:8px 2px 0;min-height:18px"></p>
+    <div class="foot"><button class="btn ghost" data-s="annulla">Annulla</button><button class="btn" data-s="salva" id="btn-salva">Salva</button></div>
+    <div class="foot" style="margin-top:8px">${v.scambioCon?`<button class="btn soft" data-s="annullaScambio">⇄ Sciogli lo scambio</button>`:`<button class="btn soft" data-s="scambia">⇄ Scambia con un altro pasto</button>`}</div>`;
+  const stato=()=>{ const el=$('#bozza-stato'); if(!el) return;
+    if(cambiata()){ el.textContent='Non ancora salvato: tocca «Salva».'; el.style.color='var(--warn)'; }
+    else { el.textContent=v.esito?`Salvato: ${ESITI[v.esito].t.toLowerCase()}.`:'Ancora da segnare.'; el.style.color='var(--muted)'; } };
+  const salvaFoto=async w=>{ if(!bozza.fotoCambiata) return true; const id=idFoto(d,p);
+    try{ if(bozza.foto){ await DB.fotoPut(id,bozza.foto); FOTO.set(id,bozza.foto); w.foto=true; }
+         else { await DB.fotoDel(id); FOTO.delete(id); delete w.foto; } bozza.fotoCambiata=false; return true; }
+    catch(e){ toast('⚠️ La foto non si salva su questo dispositivo'); return false; } };
+  const salvaBozza=async()=>{ const prima=clone(ST), w=voceW(d,p), t=bozza.nota.trim();
+    if(bozza.esito) w.esito=bozza.esito; else delete w.esito;
+    if(t) w.nota=t; else delete w.nota;
+    const soloFoto=bozza.fotoCambiata && bozza.esito===(v.esito||null) && t===(v.nota||'');
+    await salvaFoto(w);
+    salva(); chiudiFoglio(true); render();
+    conAnnulla(soloFoto ? `${p}: foto ${bozza.foto?'salvata':'tolta'}${bozza.esito?'':' (il pasto è ancora da segnare)'}` : `${p}: ${bozza.esito?ESITI[bozza.esito].t.toLowerCase():'da segnare'} · salvato`, prima); };
+  foglio(html, ds=>{
+    if(ds.s==='esito'){ bozza.esito = bozza.esito===ds.v ? null : ds.v;
+      document.querySelectorAll('#sheet [data-s="esito"]').forEach(b=>{ const on=b.dataset.v===bozza.esito; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
+      $('#nota-pasto').placeholder=segnaposto(bozza.esito); stato(); }
+    else if(ds.s==='salva') salvaBozza();
+    else if(ds.s==='foto'){ const i=$('#file-foto'); if(i){ i.value=''; i.click(); } }
+    else if(ds.s==='togliFoto'){ bozza.foto=null; bozza.fotoCambiata=true; $('#riquadro-foto').innerHTML=riquadroFoto(); stato(); }
+    else if(ds.s==='annulla') chiudiFoglio(true);
+    else if(ds.s==='scambia'){ if(cambiata()) salvaBozzaMuta(); sceltaScambioPasto(p); }
+    else if(ds.s==='annullaScambio'){ if(cambiata()) salvaBozzaMuta(); annullaScambioPasto(d,p); }
+  }, {guardia:()=>{ if(!cambiata()) return true;
+      const b=$('#btn-salva'); if(b){ b.animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:320}); }
+      const el=$('#bozza-stato'); if(el){ el.textContent='Hai cambiato qualcosa: «Salva» per tenerlo, «Annulla» per lasciar perdere.'; el.style.color='var(--warn)'; }
+      return false; }});
+  /* scambiando dal foglio, quello che si era scelto si tiene: è la stessa persona che ha appena deciso */
+  function salvaBozzaMuta(){ const w=voceW(d,p), t=bozza.nota.trim(); if(bozza.esito) w.esito=bozza.esito; else delete w.esito; if(t) w.nota=t; else delete w.nota; salvaFoto(w).then(()=>salva()); salva(); }
+  $('#nota-pasto').addEventListener('input',e=>{ bozza.nota=e.target.value; stato(); });
+  $('#file-foto').addEventListener('change',async e=>{ const fl=e.target.files[0]; if(!fl) return;
+    try{ bozza.foto=await rimpicciolisci(fl); bozza.fotoCambiata=true; const r=$('#riquadro-foto'); if(r) r.innerHTML=riquadroFoto(); stato(); }
+    catch(err){ toast('Questa immagine non si apre: prova con un’altra foto'); } });
+  stato();
+}
+
+/* ============================ GLI SCAMBI ============================
+   ⚠️ Uno scambio tocca SEMPRE due posti, e qui si scrivono tutti e due insieme. Se il pranzo di
+   oggi prende la cena, la cena prende il pranzo; se martedì prende il mercoledì, il mercoledì
+   prende il martedì. Così domani, aprendo Oggi, c'è già il pasto giusto.
+   Gli scambi stanno dentro la stessa settimana del calendario (da lunedì a domenica), che è la
+   settimana del piano. */
+function settimanaDi(d){ const l=lunediDi(d); return Array.from({length:7},(_,i)=>addDays(l,i)); }
+/* ⚠️ 14 novembre · GLI SCAMBI NON TOCCANO MAI UN POSTO GIÀ SEGNATO, NÉ UNO GIÀ SCAMBIATO.
+   Il collaudo con due persone simulate ha trovato i due difetti che venivano da qui. ① Uno scambio di
+   giorni fatto sopra un altro scambio rimetteva al suo piano il VENERDÌ già segnato, in silenzio:
+   il file per la nutrizionista diceva «come da piano» per un piano che quel giorno non c'era.
+   ② Uno scambio di pasti con un giorno già segnato lasciava la vecchia scelta dell'alternativa.
+   La domanda «i segni restano ma i pasti cambiano» non la capiva nessuno. Adesso i posti segnati o
+   già scambiati si VEDONO nell'elenco ma non si toccano, e dicono perché. */
+const motivoNoPasto=(d,p)=>{ const v=voce(d,p); if(v&&v.esito) return 'già segnato'; if(v&&v.scambioCon) return 'già scambiato'; return ''; };
+function motivoNoGiorno(d){ const g=giorno(d);
+  if(g&&g.scambioGiorno) return 'già scambiato con un altro giorno';
+  if(PASTI().some(p=>voce(d,p)&&voce(d,p).esito)) return 'ha pasti già segnati';
+  if(PASTI().some(p=>voce(d,p)&&voce(d,p).scambioCon)) return 'ha un pasto scambiato';
+  return ''; }
+function anteprima(c){ const rr=righe(c); return rr.length? rr.map(r=>r.t).join(', ') : 'niente in programma'; }
+function sceltaScambioPasto(p){
+  const d=UI.data, settimana=settimanaDi(d);
+  const altri=PASTI().filter(x=>x!==p).map(x=>({data:d,pasto:x}));
+  const stessi=settimana.filter(x=>x!==d).map(x=>({data:x,pasto:p}));
+  const opz=[...altri,...stessi];
+  const voceOpz=(o,i,eti,col)=>{ const no=motivoNoPasto(o.data,o.pasto);
+    return `<button class="opt" data-s="con" data-i="${i}" ${no?'disabled style="opacity:.5;cursor:default"':''}><span class="ico" style="background:var(--bg);color:${col}">${eti}</span><span>${esc(o.data===d?o.pasto:cap(dataLunga(o.data)))}<small>${no?`<b>${esc(no)}</b> · `:''}${esc(anteprima(contenuto(o.data,o.pasto)))}</small></span></button>`; };
+  foglio(`<h3>Scambia: ${esc(p)}</h3><p class="sub">I due pasti si scambiano di posto. Quelli già segnati o già scambiati non si possono scegliere.</p>
+    <div class="h2" style="margin-top:4px">Con un altro pasto di oggi</div>
+    <div class="opts">${altri.map((o,i)=>voceOpz(o,i,'⇄',colorePasto(o.pasto))).join('')}</div>
+    <div class="h2">Con: ${esc(p)} di un altro giorno</div>
+    <div class="opts">${stessi.map((o,i)=>voceOpz(o,altri.length+i,esc(cap(GIORNI[wd(o.data)]).slice(0,3)),'var(--muted)')).join('')}</div>
+    <div class="foot"><button class="btn ghost" data-s="chiudi">Chiudi</button></div>`,
+    ds=>{ if(ds.s!=='con') return; const o=opz[+ds.i]; if(motivoNoPasto(o.data,o.pasto)) return; chiudiFoglio(true); scambiaPasti({data:d,pasto:p}, o); });
+}
+function scambiaPasti(a,b){
+  if(motivoNoPasto(b.data,b.pasto)) return;
+  const va=voce(a.data,a.pasto); if(va&&va.scambioCon) return;          /* si scioglie prima, dal foglio */
+  const prima=clone(ST);
+  const ca=contenuto(a.data,a.pasto), cb=contenuto(b.data,b.pasto);
+  const wa=voceW(a.data,a.pasto), wb=voceW(b.data,b.pasto);
+  wa.da=cb; wa.scambioCon={data:b.data,pasto:b.pasto}; delete wa.scelte;
+  wb.da=ca; wb.scambioCon={data:a.data,pasto:a.pasto}; delete wb.scelte;
+  salva(); render();
+  conAnnulla(`Scambiato: ${a.pasto} ⇄ ${b.pasto}${b.data!==a.data?` di ${GIORNI[wd(b.data)]}`:''}`, prima);
+}
+function sciogli(d,p){ const v=voce(d,p); if(!v||!v.scambioCon) return;
+  const o=v.scambioCon, vo=voce(o.data,o.pasto);
+  delete v.da; delete v.scambioCon; delete v.scelte;
+  if(vo && vo.scambioCon && vo.scambioCon.data===d && vo.scambioCon.pasto===p){ delete vo.da; delete vo.scambioCon; delete vo.scelte; } }
+function annullaScambioPasto(d,p){ const prima=clone(ST); sciogli(d,p); salva(); chiudiFoglio(true); render(); conAnnulla('Scambio sciolto: ognuno torna al suo posto', prima); }
+
+function sceltaScambioGiorno(){
+  const d=UI.data, g=giorno(d)||{};
+  /* un giorno già scambiato si scioglie e basta: scambiarlo di nuovo da qui toccava il suo vecchio compagno */
+  if(g.scambioGiorno){
+    return foglio(`<h3>${esc(cap(dataLunga(d)))}</h3><p class="sub">Oggi segue il piano di <b>${esc(nomeGiornoPiano(gp(d)))}</b>, scambiato con <b>${esc(dataLunga(g.scambioGiorno))}</b>. Per scambiarlo con un altro giorno, prima si scioglie questo scambio.</p>
+      <div class="foot"><button class="btn ghost" data-s="chiudi">Chiudi</button><button class="btn" data-s="sciogli">Sciogli lo scambio</button></div>`,
+      ds=>{ if(ds.s!=='sciogli') return; chiudiFoglio(true); const prima=clone(ST); sciogliGiorno(d); salva(); render(); conAnnulla('Scambio sciolto: i due giorni tornano al loro piano', prima); });
+  }
+  if(PASTI().some(p=>voce(d,p)&&voce(d,p).scambioCon))
+    return foglio(`<h3>Prima i pasti</h3><p class="sub">Oggi c’è un pasto scambiato. Per scambiare il giorno intero, prima si scioglie quello scambio dal foglio del pasto.</p><div class="foot"><button class="btn" data-s="chiudi">Ho capito</button></div>`);
+  const settimana=settimanaDi(d).filter(x=>x!==d);
+  const segnatiOggi=PASTI().filter(p=>voce(d,p)&&voce(d,p).esito).length;
+  const piatti=x=>{ const gi=gp(x); return ['Pranzo','Cena'].filter(p=>PASTI().includes(p)).map(p=>`${p.toLowerCase()}: ${anteprima({giorno:gi,pasto:p})}`).join(' · ') || anteprima({giorno:gi,pasto:PASTI()[0]}); };
+  foglio(`<h3>Scambia ${esc(dataLunga(d))} con…</h3><p class="sub">I due giorni si scambiano tutto il piano: colazione, pranzo, cena e il resto.${segnatiOggi?` <b>I ${segnatiOggi} pasti già segnati di oggi tornano da segnare</b>, perché diventano altri pasti.`:''}</p>
+    <div class="opts">${settimana.map((x,i)=>{ const no=motivoNoGiorno(x);
+      return `<button class="opt" data-s="con" data-i="${i}" ${no?'disabled style="opacity:.5;cursor:default"':''}><span class="ico" style="background:var(--bg);color:var(--muted)">${esc(cap(GIORNI[wd(x)]).slice(0,3))}</span><span>${esc(cap(dataLunga(x)))}<small>${no?`<b>${esc(no)}</b> · `:''}${esc(piatti(x))}</small></span></button>`; }).join('')}</div>
+    <div class="foot"><button class="btn ghost" data-s="chiudi">Chiudi</button></div>`,
+    ds=>{ if(ds.s!=='con') return; const x=settimana[+ds.i]; if(motivoNoGiorno(x)) return; chiudiFoglio(true); scambiaGiorni(d,x); });
+}
+function scambiaGiorni(a,b){
+  if(motivoNoGiorno(b) || (giorno(a)||{}).scambioGiorno) return;
+  const prima=clone(ST);
+  const ga=gp(a), gb=gp(b);
+  const wa=giornoW(a), wb=giornoW(b);
+  wa.gp=gb; wa.scambioGiorno=b; wb.gp=ga; wb.scambioGiorno=a;
+  /* i segni di oggi erano per i pasti di prima: diventano altri pasti, quindi tornano da segnare */
+  for(const p of PASTI()){ const v=voce(a,p); if(v){ delete v.esito; delete v.scelte; } }
+  salva(); render();
+  conAnnulla(`Scambiati: ${GIORNI[wd(a)]} ⇄ ${GIORNI[wd(b)]}`, prima);
+}
+function sciogliGiorno(d){ const g=giorno(d); if(!g||g.scambioGiorno==null) return;
+  const o=giorno(g.scambioGiorno);
+  if(o && o.scambioGiorno===d){ delete o.gp; delete o.scambioGiorno; }
+  delete g.gp; delete g.scambioGiorno; }
+
+/* ============================ IL PIANO CHE ARRIVA ============================ */
+function validaPiano(o){
+  if(!o || typeof o!=='object') return 'Il file non si legge.';
+  if(o.format===DIARIO_FORMAT) return 'Questo è un diario, non un piano: va aperto in Shiftly Nutrition.';
+  if(o.format===BACKUP_FORMAT) return 'Questo è un backup del diario: si apre da «Ho un backup» o da Altro → Ripristina.';
+  if(o.format!==PIANO_FORMAT) return 'Questo file non è un piano di Shiftly Nutrition.';
+  if(!(o.formatVersion>=1)) return 'Il file non dice la sua versione.';
+  if(o.formatVersion>1) return 'Il piano è stato fatto con una versione più nuova: serve aggiornare il Diario.';
+  if(!o.piano || !Array.isArray(o.piano.giorni) || !o.piano.giorni.length) return 'Il piano non ha giorni.';
+  if(!Array.isArray(o.pasti) || !o.pasti.length) return 'Il piano non ha pasti.';
+  return null;
+}
+async function caricaPiano(o, {esempio=false}={}){
+  const err=validaPiano(o); if(err){ await chiedi({titolo:'Non riesco ad aprirlo', testo:esc(err), ok:'Ho capito'}); return false; }
+  const gg=o.piano.giorni, ab=gg.map((g,i)=>`<li><span>${esc(g.nome||`Giorno ${i+1}`)}</span><span class="muted">${g.settimana!=null?`ogni ${esc(GIORNI[g.settimana])}`:(gg.length===1?'tutti i giorni':'a rotazione')}</span></li>`).join('');
+  const nuovo=!P();
+  const ok=await chiedi({titolo:esempio?'Il piano di esempio':(o.piano.nome?esc(o.piano.nome):'Il tuo piano'),
+    testo:`${o.studio&&o.studio.nutrizionista?`Da <b>${esc(o.studio.nutrizionista)}</b>. `:''}${gg.length} giorn${gg.length===1?'o':'i'}, ${o.pasti.length} pasti al giorno.
+      <ul class="list" style="margin-top:10px">${ab}</ul>${nuovo?'':'<br>Il diario che hai già <b>resta com’è</b>: cambia solo il piano da qui in avanti.'}`,
+    ok:nuovo?'Inizia':'Usa questo piano'});
+  if(!ok) return false;
+  const vecchioEsempio=P()&&P().esempio;
+  ST.piano={...o, esempio:esempio||undefined, apertoIl:oggi()};
+  if(!ST.inizio || vecchioEsempio) ST.inizio=oggi();
+  /* ⚠️ Chi passa dal piano di esempio a quello vero NON si porta dietro il diario di prova:
+     andrebbe alla nutrizionista come se fosse vero. */
+  if(vecchioEsempio && !esempio){ ST.giorni={}; ST.misure={}; ST.ultimoInvio=null; }
+  await DB.scrivi(ST); UI.vista='oggi'; UI.data=oggi(); render();
+  toast(esempio?'Piano di esempio aperto':'Piano aperto'); return true;
+}
+function leggiFile(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result)); r.onerror=()=>rej(r.error); r.readAsText(file); }); }
+
+/* ============================ IL DIARIO CHE TORNA ============================
+   Formato B di DIARIO_CLIENTE.md: tutto il periodo, non solo le novità, così si può rimandare
+   quante volte si vuole. Nei giorni ci sono solo quelli con qualcosa dentro. */
+function diarioPerNutrizionista(){
+  const date=Object.keys(ST.giorni).sort().filter(ds=>{ const g=ST.giorni[ds]; return g && (statoGiorno(ds)!=='vuoto' || acquaMl(g) || g.att || g.nota || g.gp!=null || Object.values(g.pasti||{}).some(v=>v.da)); });
+  const mis=Object.keys(ST.misure).sort();
+  const tutte=[...date,...mis].sort();
+  return { format:DIARIO_FORMAT, formatVersion:1, app:'diario-'+APP_VERSION, createdAt:new Date().toISOString(),
+    cliente:{ id:(P().cliente&&P().cliente.id)||null }, piano:{ id:(P().piano&&P().piano.id)||null },
+    dal: tutte[0]||oggi(), al: oggi(),
+    pasti: PASTI(),            /* i pasti del piano: a Nutrition servono per sapere se un giorno è segnato tutto */
+    giorni: date.map(ds=>{ const g=ST.giorni[ds];
+      return { data:ds, giornoPiano:gp(ds), ...(g.scambioGiorno?{scambioGiorno:g.scambioGiorno}:{}),
+        pasti: PASTI().map(p=>{ const v=(g.pasti||{})[p]; if(!v || (!v.esito && !v.da && !v.nota)) return null;
+          const o={pasto:p}; if(v.esito) o.esito=v.esito;
+          if(Array.isArray(v.scelte) && v.scelte.some(x=>x>0)) o.scelte=v.scelte.map(x=>x||0);
+          if(v.da) o.da={giorno:v.da.giorno, pasto:v.da.pasto};
+          if(v.nota) o.nota=v.nota; return o; }).filter(Boolean),
+        acquaMl: acquaMl(g),
+        attivita: g.att? {fatta:!!g.att.fatta, tipo:g.att.tipo||''} : null,
+        nota: g.nota||'' }; }),
+    misure: mis.map(ds=>({data:ds, ...ST.misure[ds]})) };
+}
+function scarica(nome, testo){
+  const blob=new Blob([testo],{type:'application/json'}); const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=nome; a.style.display='none'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+/* Sul telefono si apre il foglio di condivisione (WhatsApp, Mail…); sul PC si scarica il file. */
+async function condividi(nome, testo){
+  try{ const f=new File([testo], nome, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[f]}) && /iPhone|iPad|Android/i.test(navigator.userAgent)){ await navigator.share({files:[f], title:nome}); return true; } }catch(e){ if(e&&e.name==='AbortError') return false; }
+  scarica(nome, testo); return true;
+}
+
+/* ============================ I GESTI ============================ */
+const AZ={
+  apriPiano(){ $('#file-piano').value=''; $('#file-piano').click(); },
+  async esempio(){ await caricaPiano(ESEMPIO(), {esempio:true}); },
+  ripristina(){ $('#file-backup').value=''; $('#file-backup').click(); },
+  giornoPrima(){ UI.data=addDays(UI.data,-1); render(); },
+  giornoDopo(){ if(UI.data<oggi()){ UI.data=addDays(UI.data,1); render(); } },
+  tornaOggi(){ UI.data=oggi(); render(); },
+  vaiData(d){ UI.data=d.d; render(); window.scrollTo(0,0); },
+  apriPasto(d){ apriPasto(d.p); },
+  /* ⚠️ 14 novembre · dal collaudo: toccare «Riso» invece di «Pasta» salvava la scelta ma il pasto restava
+     «da segnare», e si credeva di averlo segnato. Adesso scegliere cosa si è mangiato È segnarlo: come
+     da piano, con quell'alternativa. Se era già segnato, cambia solo la scelta. Col suo «Annulla». */
+  scegli(d,e){ e.stopPropagation(); const prima=clone(ST); const w=voceW(UI.data,d.p); const rr=righe(contenuto(UI.data,d.p));
+    w.scelte=Array.from({length:rr.length},(_,i)=>(Array.isArray(w.scelte)&&w.scelte[i])||0); w.scelte[+d.i]=+d.k;
+    const segnato=!w.esito; if(segnato) w.esito='piano';
+    salva(); render(); conAnnulla(segnato?`${d.p}: come da piano, con la tua scelta`:`${d.p}: scelta cambiata`, prima); },
+  tuttoPiano(){ const prima=clone(ST); let n=0;
+    for(const p of PASTI()){ const v=voce(UI.data,p); if(v&&v.esito) continue; voceW(UI.data,p).esito='piano'; n++; }
+    salva(); render(); conAnnulla(`${n} pasti segnati come da piano`, prima); },
+  acqua(d){ const g=giornoW(UI.data); const U=unitaAcqua();
+    g.acquaMl=Math.max(0,Math.min(10000,(acquaMl(g)||0)+(+d.v)*U.ml)); delete g.acqua; salva(); render(); },
+  att(d){ const g=giornoW(UI.data); const v=d.v==='si';
+    if(g.att && g.att.fatta===v){ delete g.att; } else g.att={fatta:v, tipo:v?((g.att&&g.att.tipo)||''):''}; salva(); render(); },
+  /* contando a bottiglie da 1,5 litri non si arrivava mai a 2 litri: il bicchiere c'è sempre */
+  acquaMl(d){ const g=giornoW(UI.data); g.acquaMl=Math.max(0,Math.min(10000,(acquaMl(g)||0)+(+d.v))); delete g.acqua; salva(); render(); },
+  pianoTab(d){ UI.pianoTab=d.v; render(); },
+  spunta(d,e){ if(e.target.closest('[data-act="togliExtra"]')) return; const S=SPESA(); if(S.presi[d.k]) delete S.presi[d.k]; else S.presi[d.k]=true; salva(); render(); },
+  aggiungiVoce(){ const el=$('#nuova-voce'); const t=String(el&&el.value||'').trim(); if(!t) return; const S=SPESA();
+    S.extra=[...(S.extra||[]), {id:Date.now().toString(36), t}]; salva(); render(); const n=$('#nuova-voce'); n&&n.focus(); },
+  togliExtra(d){ const S=SPESA(); S.extra=(S.extra||[]).filter(x=>x.id!==d.v); delete S.presi['x:'+d.v]; salva(); render(); },
+  async ricominciaSpesa(){ if(!(await chiedi({titolo:'Ricominciare la lista?', testo:'Tutte le spunte tornano vuote, come a inizio settimana. Le cose che hai aggiunto tu restano.', ok:'Ricomincia'}))) return;
+    SPESA().presi={}; salva(); render(); toast('Lista ricominciata'); },
+  optAcqua(d){ OPZ().acqua=d.v; salva(); render(); toast(`L’acqua si conta a ${unitaAcqua().piu}`); },
+  aggiungiTipo(){ const el=$('#nuovo-tipo'); const t=String(el&&el.value||'').trim(); if(!t) return;
+    const l=tipiAtt(); if(l.some(x=>x.toLowerCase()===t.toLowerCase())) return toast('C’è già');
+    OPZ().tipiAtt=[...l,t]; salva(); render(); },
+  togliTipo(d){ const l=tipiAtt().filter(x=>x!==d.v); OPZ().tipiAtt=l.length?l:TIPI_DEF; salva(); render(); },
+  attTipo(d){ const g=giornoW(UI.data); if(!g.att) return; g.att.tipo = g.att.tipo===d.v ? '' : d.v; salva(); render(); },
+  scambiaGiorno(){ sceltaScambioGiorno(); },
+  mese(d){ const [y,m]=UI.mese.split('-').map(Number); const n=new Date(y,m-1+(+d.v),1); const s=ymd(n).slice(0,7); if(s<=oggi().slice(0,7)){ UI.mese=s; render(); } },
+  apriGiorno(d){ riepilogoGiorno(d.d); },
+  misuraSel(d){ UI.misuraSel=d.v; render(); },
+  salvaMisure(){ const M=P().misure||[]; const out={}; let errori=0;
+    for(const m of M){ const el=$(`[data-mis="${CSS.escape(m.k)}"]`), box=$(`[data-mf="${CSS.escape(m.k)}"]`); const raw=el.value; const n=numIt(raw);
+      box.classList.remove('err'); $('.e',box).textContent='';
+      if(raw.trim()==='') continue;
+      if(n==null){ box.classList.add('err'); $('.e',box).textContent='Scrivi solo il numero'; errori++; continue; }
+      if((m.min!=null && n<m.min) || (m.max!=null && n>m.max)){ box.classList.add('err'); $('.e',box).textContent=`${fmt(n)} ${m.u||''}? Sembra fuori misura`; errori++; continue; }
+      out[m.k]=String(n); }
+    if(errori) return toast('Controlla i numeri segnati in rosso');
+    if(!Object.keys(out).length) return toast('Scrivi almeno una misura');
+    ST.misure[oggi()]=out; salva(); render(); toast('Misure salvate'); },
+  async mandaDiario(){ const o=diarioPerNutrizionista(); const nome=nomePersona()||'cliente';
+    const ok=await condividi(`Diario di ${nome} - ${o.al}.json`.replace(/[\\/:*?"<>|]+/g,'-'), JSON.stringify(o,null,2));
+    if(ok){ ST.ultimoInvio=oggi(); salva(); render(); toast('File del diario pronto: mandalo alla nutrizionista'); } },
+  /* il backup porta anche le foto (in base64): pesa di più, ma senza non si recuperano */
+  async backup(){ const foto=await DB.fotoTutte(); scarica(`Backup diario - ${oggi()}.json`, JSON.stringify({format:BACKUP_FORMAT, formatVersion:1, app:APP_VERSION, createdAt:new Date().toISOString(), stato:ST, foto},null,2)); toast(Object.keys(foto).length?`Backup scaricato, con ${Object.keys(foto).length} foto`:'Backup scaricato'); },
+  async cancellaTutto(){ if(!(await chiedi({titolo:'Cancellare tutto?', testo:'Piano, pasti segnati, acqua, allenamenti e misure spariscono <b>da questo dispositivo</b>. Non si può annullare: se vuoi tenerli, prima scarica un backup.', ok:'Cancella tutto', danger:true}))) return;
+    ST=VUOTO(); await DB.scrivi(ST); try{ await DB.fotoSvuota(); }catch(e){} FOTO.clear(); UI.vista='oggi'; UI.data=oggi(); render(); toast('Diario cancellato'); }
+};
+document.addEventListener('click',e=>{
+  const go=e.target.closest('[data-go]'); if(go && !e.target.closest('#sheet')){ vai(go.dataset.go); return; }
+  const b=e.target.closest('[data-act]'); if(!b || e.target.closest('#sheet')) return;
+  const f=AZ[b.dataset.act]; if(f) f(b.dataset, e);
+});
+document.addEventListener('input',e=>{ const t=e.target;
+  if(t.id==='nuova-voce' || t.id==='nuovo-tipo') return;
+  if(t.dataset && t.dataset.opt==='nome'){ const v=t.value.trim(); if(v) OPZ().nome=v; else delete OPZ().nome; salva(); return; }
+  if(t.dataset && t.dataset.nota){ const g=giornoW(t.dataset.nota); const v=t.value; if(v.trim()) g.nota=v; else delete g.nota; salva(); } });
+$('#file-piano').addEventListener('change', async e=>{ const f=e.target.files[0]; if(!f) return;
+  let o=null; try{ o=JSON.parse(await leggiFile(f)); }catch(err){ await chiedi({titolo:'Non riesco ad aprirlo', testo:'Il file non è un piano: forse è stato rinominato o tagliato.', ok:'Ho capito'}); return; }
+  await caricaPiano(o); });
+$('#file-backup').addEventListener('change', async e=>{ const f=e.target.files[0]; if(!f) return;
+  let o=null; try{ o=JSON.parse(await leggiFile(f)); }catch(err){ o=null; }
+  if(!o || o.format!==BACKUP_FORMAT || !o.stato){ await chiedi({titolo:'Non è un backup del diario', testo: o&&o.format===PIANO_FORMAT?'Questo è un <b>piano</b>: si apre con «Apri il piano».':'Il file non è un backup di Shiftly Diario.', ok:'Ho capito'}); return; }
+  if(P() && !(await chiedi({titolo:'Sostituire il diario?', testo:`Il diario di questo dispositivo viene <b>sostituito</b> con quello del backup del ${esc(new Date(o.createdAt).toLocaleDateString('it-IT'))}.`, ok:'Sostituisci', danger:true}))) return;
+  ST={...VUOTO(), ...o.stato}; await DB.scrivi(ST);
+  try{ await DB.fotoSvuota(); FOTO.clear(); for(const [k,v] of Object.entries(o.foto||{})){ await DB.fotoPut(k,v); FOTO.set(k,v); } }catch(e){}
+  UI.vista='oggi'; UI.data=oggi(); render(); toast('Backup ripristinato'); });
+
+let toastT=null;
+function toast(msg, annulla){
+  let t=$('#toast'); if(t) t.remove();
+  t=document.createElement('div'); t.id='toast'; t.className='toast'; t.setAttribute('role','status');
+  t.innerHTML=`<span>${esc(msg)}</span>${annulla&&annullaDa?'<button id="toast-annulla">Annulla</button>':''}`;
+  document.body.appendChild(t);
+  const b=$('#toast-annulla'); if(b) b.addEventListener('click',()=>{ if(annullaDa){ ST=annullaDa; annullaDa=null; salva(); render(); } t.remove(); });
+  clearTimeout(toastT); toastT=setTimeout(()=>{ t.remove(); annullaDa=null; }, annulla?6000:2800);
+}
+
+/* ============================ IL PIANO DI ESEMPIO ============================
+   Per provare il Diario senza aspettare la nutrizionista. Persona, studio e piano INVENTATI. */
+function ESEMPIO(){
+  const R=(t,qta,alt)=>({t,qta,alt:alt||[]});
+  const colaz=[ [R('Yogurt greco 0%','1 vasetto (170 g)'),R('Fiocchi d’avena','30 g'),R('Frutti di bosco','100 g')],
+                [R('Latte parzialmente scremato','200 ml'),R('Fette biscottate integrali','3 fette (30 g)'),R('Marmellata senza zuccheri','1 cucchiaino')] ];
+  const spunt=[R('Frutta di stagione','1 frutto (150 g)')];
+  const pranzi=[
+    [R('Pasta integrale','70 g',[R('Riso basmati','70 g')]),R('Pomodoro e basilico','q.b.'),R('Verdure grigliate','200 g'),R('Olio extravergine','1 cucchiaio')],
+    [R('Petto di pollo','120 g',[R('Tacchino','120 g')]),R('Insalata mista','a piacere'),R('Pane integrale','2 fette (60 g)'),R('Olio extravergine','1 cucchiaio')],
+    [R('Farro','70 g'),R('Ceci','100 g'),R('Zucchine','150 g'),R('Olio extravergine','1 cucchiaio')],
+    [R('Riso venere','70 g'),R('Gamberi','120 g'),R('Piselli','100 g'),R('Olio extravergine','1 cucchiaio')],
+    [R('Pasta integrale','70 g'),R('Lenticchie','80 g'),R('Spinaci','150 g'),R('Olio extravergine','1 cucchiaio')],
+    [R('Bresaola','80 g',[R('Prosciutto crudo sgrassato','70 g')]),R('Rucola e grana','30 g di grana'),R('Pane integrale','2 fette (60 g)')],
+    [R('Pasta al ragù di verdure','80 g'),R('Insalata mista','a piacere'),R('Olio extravergine','1 cucchiaio')] ];
+  const merende=[R('Mandorle','15 g',[R('Noci','15 g')])];
+  const cene=[
+    [R('Salmone al forno','150 g'),R('Patate','200 g'),R('Fagiolini','200 g')],
+    [R('Frittata di albumi','2 uova + 100 ml di albume'),R('Verdure cotte','200 g'),R('Pane integrale','1 fetta (30 g)')],
+    [R('Merluzzo','180 g',[R('Orata','180 g')]),R('Insalata mista','a piacere'),R('Pane integrale','1 fetta (30 g)')],
+    [R('Ricotta','150 g'),R('Verdure grigliate','200 g'),R('Gallette di riso','2')],
+    [R('Petto di pollo','150 g'),R('Broccoli','200 g'),R('Patate','150 g')],
+    [R('Pizza margherita','1, a cena fuori — concordata')],
+    [R('Minestrone','300 g'),R('Mozzarella light','100 g'),R('Pane integrale','1 fetta (30 g)')] ];
+  const nomi=['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+  return { format:PIANO_FORMAT, formatVersion:1, app:'esempio', createdAt:new Date().toISOString(),
+    studio:{studio:'Studio di esempio', nutrizionista:'Dott.ssa Esempio', telefono:'', email:''},
+    cliente:{id:'esempio', nome:'Irene'},
+    piano:{ id:'piano-esempio', nome:'Piano di esempio', data:oggi(), note:'Bere almeno 8 bicchieri d’acqua al giorno, lontano dai pasti.\nLe verdure sono libere.',
+      giorni: nomi.map((n,i)=>({ nome:n, settimana:i, pasti:[
+        {nome:'Colazione', righe:colaz[i%2]}, {nome:'Spuntino', righe:spunt}, {nome:'Pranzo', righe:pranzi[i]},
+        {nome:'Merenda', righe:merende}, {nome:'Cena', righe:cene[i]} ] })) },
+    pasti:['Colazione','Spuntino','Pranzo','Merenda','Cena'],
+    misure:[ {k:'peso',l:'Peso',u:'kg',min:2,max:400}, {k:'vita',l:'Vita',u:'cm',min:20,max:300}, {k:'fianchi',l:'Fianchi',u:'cm',min:20,max:300},
+             {k:'braccio',l:'Braccio',u:'cm',min:5,max:100}, {k:'coscia',l:'Coscia',u:'cm',min:10,max:150}, {k:'polpaccio',l:'Polpaccio',u:'cm',min:15,max:80},
+             {k:'petto',l:'Torace',u:'cm',min:20,max:250} ],
+    acqua:{obiettivoBicchieri:8} };
+}
+
+/* ============================ AVVIO ============================ */
+(async()=>{
+  const s=await DB.leggi();
+  if(s && typeof s==='object') ST={...VUOTO(), ...s};
+  for(const [k,v] of Object.entries(await DB.fotoTutte())) FOTO.set(k,v);
+  /* la 0.1 contava l'acqua a bicchieri: si converte una volta, un bicchiere = 250 ml */
+  for(const g of Object.values(ST.giorni||{})) if(g && g.acqua!=null && g.acquaMl==null){ g.acquaMl=g.acqua*250; delete g.acqua; }
+  /* a mezzanotte «oggi» cambia: se l'app resta aperta, ci si rimette sul giorno nuovo */
+  let ultimoOggi=oggi();
+  setInterval(()=>{ if(oggi()!==ultimoOggi){ if(UI.data===ultimoOggi) UI.data=oggi(); ultimoOggi=oggi(); if(!$('#sheet')) render(); } }, 60000);
+  render();
+  /* 0.5 (16 nov) · SOLO QUANDO È PUBBLICATO (https). Il service worker tiene una copia del programma
+     sul telefono, così si apre anche senza rete; `persist` chiede al telefono di non cancellare i dati
+     quando manca spazio. Aperto con doppio clic (file://) non fa niente di tutto questo. */
+  if(/^https?:$/.test(location.protocol)){
+    try{ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){}
+    try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
+  }
+})();
+window.__DIARIO={get ST(){return ST;}, UI, gp, gpDefault, contenuto, statMese, diarioPerNutrizionista, ESEMPIO, validaPiano, render};
+</script>
+</body>
+</html>
