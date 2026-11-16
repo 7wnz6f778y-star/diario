@@ -244,7 +244,7 @@ table.hist th{font-size:11.5px;color:var(--muted);font-weight:600}
 <input type="file" id="file-backup" accept=".json,application/json" class="hidden">
 <script>
 'use strict';
-const APP_VERSION='0.5.0';
+const APP_VERSION='0.6.0';
 const PIANO_FORMAT='shiftly-nutrition-piano-cliente', DIARIO_FORMAT='shiftly-nutrition-diario', BACKUP_FORMAT='shiftly-diario-backup';
 
 /* ============================ PICCOLI ATTREZZI ============================ */
@@ -647,33 +647,72 @@ const SPESA=()=>(ST.spesa=ST.spesa||{presi:{}, extra:[]});
 /* «2 uova + 100 ml di albume» non sono 100 ml: con un «+» la quantità non si somma. */
 function quantitaDi(qta){ if(String(qta||'').includes('+')) return null; const m=[...String(qta||'').matchAll(/(\d+(?:[.,]\d+)?)\s*(g|ml)\b/gi)]; if(!m.length) return null;
   const u=m[m.length-1]; return {n:parseFloat(u[1].replace(',','.')), u:u[2].toLowerCase()}; }
+/* 0.6 (16 nov) · I REPARTI, NELL'ORDINE IN CUI SI GIRA IL SUPERMERCATO. Idea di Giuseppe: la lista va
+   per zone, così si prende tutto in un giro. Il reparto si legge dalla categoria che manda Nutrition
+   («Latte e derivati» → latte) e, se non c'è (un piano ricopiato da un PDF), dal NOME dell'alimento.
+   ⚠️ Non è la categoria nel file (quella Nutrition non la inventa mai): è solo dove cercarlo nel
+      negozio. Un nome che non si riconosce va in «Altro», in fondo: meglio di un reparto sbagliato.
+   ⚠️ Nei nomi composti («Riso con zucchine e gamberetti») vince la parola che viene PRIMA: è
+      quella che il piano mette in testa. A pari posizione, la più lunga («frutta secca» batte «frutta»). */
+const REPARTI=[
+  ['Frutta e verdura', /\b(verdur\w*|insalat\w*|zucchin\w*|pomodor\w*|frutta|frutti rossi|frutto|mel[ae]|banan\w*|arance?|limon\w*|prezzemolo|carot\w*|spinaci|broccol\w*|patat\w*|fagiolini|ortaggi)\b/],
+  ['Pane e forno', /\b(pane|fette biscottate|biscott\w*|gallette|cracker\w*|grissini|panin\w*|focacc\w*)\b/],
+  ['Macelleria', /\b(carne|carni|pollo|tacchino|coniglio|lonza|fesa|manzo|vitello|maiale|hamburger|macinat\w*)\b/],
+  ['Pescheria', /\b(pesce|pesci|salmone|sgombro|sardin\w*|orata|merluzzo|pesce spada|gamber\w*|branzino|prodotti della pesca)\b/],
+  ['Salumi e formaggi', /\b(bresaola|affettat\w*|prosciutto|salum\w*|speck|mozzarell\w*|ricotta|philadelphia|formagg\w*|parmigian\w*|grana|fiocchi di latte)\b/],
+  ['Latte, yogurt e uova', /\b(yogurt|latte|uova|uovo|album\w*|dessert proteico|skyr|kefir)\b/],
+  ['Dispensa', /\b(pasta|riso|farro|orzo|olio|oli e grassi|tonno|legum\w*|ceci|lenticchie|cacao|marmellata|fiocchi d.avena|crema spalmabile|te|tisana|mandorl\w*|noci|nocciol\w*|frutta secca|cioccolat\w*|cocco|cereali|miele|zucchero|aceto)\b/],
+  ['Surgelati', /\b(surgelat\w*)\b/]];
+function indovinaReparto(testo){ const s=normT(testo); let best=null;
+  for(const [nome,re] of REPARTI){ const m=re.exec(s); if(m && (!best || m.index<best.i || (m.index===best.i && m[0].length>best.l))) best={nome, i:m.index, l:m[0].length}; }
+  return best?best.nome:''; }
+const repartoDi=(t,cat)=>indovinaReparto(cat||'')||indovinaReparto(t)||'Altro';
+const ordineReparto=r=>{ const i=REPARTI.findIndex(x=>x[0]===r); return i<0?REPARTI.length:i; };
+/* «Pasto libero» è nel piano ma non si compra */
+const nonSiCompra=k=>/^(pasto )?liber[oa]$/.test(k);
 function listaSpesa(){
   const gg=G(), peso=gg.length===1?7:1, map=new Map();     /* un giorno tipo vale sette volte */
-  gg.forEach(gio=>(gio.pasti||[]).forEach(pa=>(pa.righe||[]).forEach(r=>{ const k=normT(r.t); if(!k) return;
-    let it=map.get(k); if(!it){ it={k, t:String(r.t).trim(), cat:String(r.cat||''), volte:0, q:{}, sommabile:true, alt:new Set()}; map.set(k,it); }
+  gg.forEach(gio=>(gio.pasti||[]).forEach(pa=>(pa.righe||[]).forEach(r=>{ const k=normT(r.t); if(!k || nonSiCompra(k)) return;
+    let it=map.get(k); if(!it){ it={k, t:String(r.t).trim(), cat:String(r.cat||''), rep:repartoDi(r.t, r.cat), volte:0, q:{}, sommabile:true, alt:new Set()}; map.set(k,it); }
     it.volte+=peso; const q=quantitaDi(r.qta); if(q) it.q[q.u]=(it.q[q.u]||0)+q.n*peso; else it.sommabile=false;
     (r.alt||[]).forEach(a=>{ if(normT(a.t)!==k) it.alt.add(String(a.t).trim()); }); })));
-  return [...map.values()].sort((a,b)=>(a.cat||'~').localeCompare(b.cat||'~','it') || a.t.localeCompare(b.t,'it'));
+  return [...map.values()].sort((a,b)=>ordineReparto(a.rep)-ordineReparto(b.rep) || a.t.localeCompare(b.t,'it'));
 }
-function dettaglioSpesa(it){ const u=Object.keys(it.q);
-  const quanto = (it.sommabile && u.length===1) ? (it.q[u[0]]>=1000 ? `circa ${fmt(it.q[u[0]]/1000,1)} ${u[0]==='g'?'kg':'litri'}` : `circa ${fmt(it.q[u[0]],0)} ${u[0]}`) : '';
-  return [quanto, `${it.volte} ${it.volte===1?'volta':'volte'} nella settimana`].filter(Boolean).join(' · '); }
-function vSpesa(){
+function quantoSpesa(it){ const u=Object.keys(it.q);
+  return (it.sommabile && u.length===1) ? (it.q[u[0]]>=1000 ? `circa ${fmt(it.q[u[0]]/1000,1)} ${u[0]==='g'?'kg':'litri'}` : `circa ${fmt(it.q[u[0]],0)} ${u[0]}`) : ''; }
+function dettaglioSpesa(it){
+  return [quantoSpesa(it), `${it.volte} ${it.volte===1?'volta':'volte'} nella settimana`].filter(Boolean).join(' · '); }
+function vociSpesa(){
   const S=SPESA(), lista=listaSpesa(), extra=S.extra||[];
-  const voci=[...lista.map(it=>({key:'p:'+it.k, t:it.t, sub:dettaglioSpesa(it), alt:[...it.alt], cat:it.cat})),
-              ...extra.map(x=>({key:'x:'+x.id, t:x.t, sub:'aggiunto da te', alt:[], cat:'', extra:x.id}))];
-  const preso=v=>!!S.presi[v.key], daComprare=voci.filter(v=>!preso(v)), presi=voci.filter(preso);
-  const conCat=voci.some(v=>v.cat);
+  const voci=[...lista.map(it=>({key:'p:'+it.k, t:it.t, sub:dettaglioSpesa(it), quanto:quantoSpesa(it), alt:[...it.alt], rep:it.rep})),
+              ...extra.map(x=>({key:'x:'+x.id, t:x.t, sub:'aggiunto da te', quanto:'', alt:[], rep:repartoDi(x.t,''), extra:x.id}))];
+  const preso=v=>!!S.presi[v.key];
+  return {S, voci, preso, daComprare:voci.filter(v=>!preso(v)), presi:voci.filter(preso)};
+}
+/* per reparto, nell'ordine del supermercato; «Altro» in fondo */
+function perReparto(l){ const per=new Map();
+  [...l].sort((a,b)=>ordineReparto(a.rep)-ordineReparto(b.rep) || a.t.localeCompare(b.t,'it')).forEach(v=>{ if(!per.has(v.rep)) per.set(v.rep,[]); per.get(v.rep).push(v); });
+  return [...per.entries()]; }
+/* 0.6 · «Manda la lista»: il testo di quello che resta da comprare, da mandare su WhatsApp a chi va a
+   fare la spesa. Solo il DA COMPRARE: quello che è già in casa non serve a chi è al supermercato. */
+function testoSpesa(){ const {daComprare}=vociSpesa();
+  if(!daComprare.length) return '';
+  return '🛒 Lista della spesa\n'+perReparto(daComprare).map(([r,vv])=>`\n${r.toUpperCase()}\n`+vv.map(v=>
+    `• ${v.t}${v.quanto?` (${v.quanto})`:''}${v.alt.length?` — oppure ${v.alt.join(', ')}`:''}`).join('\n')).join('\n');
+}
+function vSpesa(){
+  const {voci, preso, daComprare, presi}=vociSpesa();
+  const conCat=voci.some(v=>v.rep!=='Altro');
   const riga=v=>`<li class="spesa ${preso(v)?'presa':''}" data-act="spunta" data-k="${esc(v.key)}" role="checkbox" aria-checked="${preso(v)}">
       <span class="tick">${preso(v)?'✓':''}</span><span class="grow"><b>${esc(v.t)}</b>${v.sub?`<small>${esc(v.sub)}</small>`:''}${v.alt.length?`<small>oppure: ${v.alt.map(esc).join(', ')}</small>`:''}</span>
       ${v.extra?`<button class="link" data-act="togliExtra" data-v="${esc(v.extra)}" aria-label="Togli ${esc(v.t)}" style="text-decoration:none;font-size:18px">×</button>`:''}</li>`;
   const gruppi=l=>{ if(!conCat) return `<ul class="list">${l.map(riga).join('')}</ul>`;
-    const per=new Map(); l.forEach(v=>{ const c=v.cat||'Altro'; if(!per.has(c)) per.set(c,[]); per.get(c).push(v); });
-    return [...per.entries()].map(([c,vv])=>`<div class="small muted" style="font-weight:700;margin:10px 0 2px">${esc(c)}</div><ul class="list">${vv.map(riga).join('')}</ul>`).join(''); };
+    return perReparto(l).map(([c,vv])=>`<div class="small muted" style="font-weight:700;margin:10px 0 2px">${esc(c)}</div><ul class="list">${vv.map(riga).join('')}</ul>`).join(''); };
   return `
     <div class="card"><b>La spesa della settimana</b>
       <div class="small muted" style="margin-top:2px">Dal tuo piano. Spunta quello che <b>hai già</b>: resta da comprare il resto. Al supermercato spunti man mano.</div>
-      <div class="small" style="margin-top:8px" id="spesa-conto"><b>${daComprare.length}</b> da comprare · ${presi.length} già ${presi.length===1?'preso':'presi'}</div></div>
+      <div class="small" style="margin-top:8px" id="spesa-conto"><b>${daComprare.length}</b> da comprare · ${presi.length} già ${presi.length===1?'preso':'presi'}</div>
+      ${daComprare.length?`<button class="btn soft" data-act="mandaSpesa" style="width:100%;margin-top:10px">📤 Manda la lista</button>`:''}</div>
     <div class="h2">Da comprare</div>
     <div class="card" id="da-comprare">${daComprare.length?gruppi(daComprare):'<p class="muted" style="margin:0">Hai tutto. 🎉</p>'}
       <div class="rowline" style="margin-top:10px"><input type="text" id="nuova-voce" placeholder="Aggiungi altro (es. detersivo)"><button class="btn soft" data-act="aggiungiVoce">Aggiungi</button></div></div>
@@ -991,6 +1030,12 @@ const AZ={
   aggiungiVoce(){ const el=$('#nuova-voce'); const t=String(el&&el.value||'').trim(); if(!t) return; const S=SPESA();
     S.extra=[...(S.extra||[]), {id:Date.now().toString(36), t}]; salva(); render(); const n=$('#nuova-voce'); n&&n.focus(); },
   togliExtra(d){ const S=SPESA(); S.extra=(S.extra||[]).filter(x=>x.id!==d.v); delete S.presi['x:'+d.v]; salva(); render(); },
+  /* sul telefono si apre la condivisione (WhatsApp, Messaggi…) col TESTO, non con un file: chi lo
+     riceve lo legge senza aprire niente. Sul computer si copia negli appunti. */
+  async mandaSpesa(){ const t=testoSpesa(); if(!t) return;
+    try{ if(navigator.share && /iPhone|iPad|Android/i.test(navigator.userAgent)){ await navigator.share({text:t}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+    try{ await navigator.clipboard.writeText(t); toast('Lista copiata: incollala dove vuoi'); return; }catch(e){}
+    await chiedi({titolo:'La lista da mandare', testo:`<pre style="white-space:pre-wrap;font:inherit;margin:0">${esc(t)}</pre>`, ok:'Chiudi'}); },
   async ricominciaSpesa(){ if(!(await chiedi({titolo:'Ricominciare la lista?', testo:'Tutte le spunte tornano vuote, come a inizio settimana. Le cose che hai aggiunto tu restano.', ok:'Ricomincia'}))) return;
     SPESA().presi={}; salva(); render(); toast('Lista ricominciata'); },
   optAcqua(d){ OPZ().acqua=d.v; salva(); render(); toast(`L’acqua si conta a ${unitaAcqua().piu}`); },
@@ -1109,7 +1154,7 @@ function ESEMPIO(){
     try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
   }
 })();
-window.__DIARIO={get ST(){return ST;}, UI, gp, gpDefault, contenuto, statMese, diarioPerNutrizionista, ESEMPIO, validaPiano, render};
+window.__DIARIO={get ST(){return ST;}, UI, gp, gpDefault, contenuto, statMese, diarioPerNutrizionista, ESEMPIO, validaPiano, render, testoSpesa, repartoDi};
 </script>
 </body>
 </html>

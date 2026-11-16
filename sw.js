@@ -5,7 +5,7 @@
       cambia anche di una virgola, cambia sw.js, il telefono se ne accorge e scarica la copia nuova.
       La nuova si vede dall'apertura DOPO: niente ricarica a metà, che farebbe perdere un foglio
       aperto e non salvato. */
-const VERSIONE = '0.5.0-95de8590e2';
+const VERSIONE = '0.6.0-13b7afa99b';
 const CACHE = 'diario-' + VERSIONE;
 const FILE = ['./', 'index.html', 'manifest.webmanifest', 'icona-180.png', 'icona-192.png', 'icona-512.png'];
 
